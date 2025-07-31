@@ -1,0 +1,21 @@
+services:
+  service-name:
+    build:
+      context: ./${PROJECT_NAME}/.build
+      dockerfile: Dockerfile
+    image: ${PROJECT_NAME}_image
+    volumes:
+      - ./${PROJECT_NAME}:${CONTAINER_VOLUME:-/app}
+      - ${STOCK_DATA}:${CONTAINER_STOCK:-/stock_data}
+      - ${COMPANY_DATA}:${CONTAINER_COMPANY_DATA:-/company}
+      - ${KABUTAN}:${CONTAINER_KABUTAN:-/kabutan}
+    working_dir: ${CONTAINER_VOLUME:-/app}
+    environment:
+      - PYTHONPATH=${PYTHONPATH:-/app:/app/stock_price}
+      - STOCK_DATA=${CONTAINER_STOCK:-/stock_data}
+      - COMPANY_DATA=${CONTAINER_COMPANY_DATA:-/company}
+      - KABUTAN=${CONTAINER_KABUTAN:-/kabutan}
+      - GITHUB_PAT=${GITHUB_PAT:-my_github_pat}
+    # command: ["bash", "run.sh"]
+    stdin_open: true
+    tty: true
