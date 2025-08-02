@@ -1,12 +1,3 @@
 {
-  "mcpServers": {
-    "DebateSystem": {
-      "command": "/usr/local/bin/python",
-      "args": [
-        "/app/mcp_server.py"
-      ],
-      "env": {},
-      "cwd": "/app"
-    }
-  }
+  "mcpServers": {}
 }
