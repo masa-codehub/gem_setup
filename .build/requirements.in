@@ -5,7 +5,8 @@
 # pip-compile によって requirements.txt に依存関係も含めて書き出されます
 
 # gem_setup の実行に必要なライブラリ
-"mcp[cli]"
+mcp[cli]
+filelock 
 
 # --- Development Dependencies ---
 # 開発時にのみ使用するツール (テスト, Lint, Format, 依存関係管理等)
