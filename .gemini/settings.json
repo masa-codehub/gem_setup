@@ -1,13 +1,5 @@
 {
   "mcpServers": {
-    "my-python-server": {
-      "command": "/usr/local/bin/python",
-      "args": [
-        "/app/gemini-mcp-tutorial/server.py"
-      ],
-      "env": {},
-      "cwd": "/app"
-    },
     "DebateSystem": {
       "command": "/usr/local/bin/python",
       "args": [
