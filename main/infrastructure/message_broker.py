@@ -96,3 +96,48 @@ class SqliteMessageBroker(IMessageBroker):
                 turn_id=message_dict['turn_id'],
                 timestamp=message_dict['timestamp']
             )
+
+    def get_statistics(self) -> dict:
+        """メッセージブローカーの統計情報を取得する"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            # 総メッセージ数
+            cursor.execute("SELECT COUNT(*) as total FROM messages")
+            total_messages = cursor.fetchone()[0]
+
+            # 未読メッセージ数
+            cursor.execute(
+                "SELECT COUNT(*) as unread FROM messages WHERE is_read = 0"
+            )
+            unread_messages = cursor.fetchone()[0]
+
+            return {
+                'total_messages': total_messages,
+                'unread_messages': unread_messages
+            }
+
+    def get_all_messages(self) -> list[Message]:
+        """すべてのメッセージ履歴を取得する"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT message_body FROM messages
+                ORDER BY created_at
+            """)
+
+            messages = []
+            for row in cursor.fetchall():
+                message_dict = json.loads(row['message_body'])
+                messages.append(Message(
+                    recipient_id=message_dict['recipient_id'],
+                    sender_id=message_dict['sender_id'],
+                    message_type=message_dict['message_type'],
+                    payload=message_dict['payload'],
+                    turn_id=message_dict['turn_id'],
+                    timestamp=message_dict['timestamp']
+                ))
+
+            return messages

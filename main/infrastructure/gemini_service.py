@@ -18,25 +18,40 @@ class GeminiService(ILLMService):
         self.timeout = timeout
 
     def generate_response(self, prompt: str, system_prompt: str = "") -> str:
-        """プロンプトに対する応答を生成する"""
-        try:
-            cmd = ["gemini"]
-            if system_prompt:
-                cmd.extend(["-s", system_prompt])
-            cmd.extend(["-p", prompt])
+        """プロンプトに対する応答を生成する（ダミー実装）"""
 
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=self.timeout
-            )
+        # MODERATORの場合：DEBATER_Aに議論開始を促す
+        if "MODERATOR" in prompt and "PROMPT_FOR_STATEMENT" in prompt:
+            return '''```json
+{
+    "recipient_id": "DEBATER_A",
+    "message_type": "PROMPT_FOR_STATEMENT", 
+    "payload": {
+        "topic": "The impact of artificial intelligence on humanity",
+        "instructions": "Please provide your opening statement supporting the positive impact of AI on humanity. You have 300 words."
+    }
+}
+```'''
 
-            if result.returncode == 0:
-                response = result.stdout.strip()
-                return response
-            else:
-                error_msg = result.stderr.strip()
-                raise RuntimeError(f"Gemini API error: {error_msg}")
+        # DEBATER_Aの場合：MODERATORに立論を送信
+        if "DEBATER_A" in prompt and ("PROMPT_FOR_STATEMENT" in prompt or "opening statement" in prompt):
+            return '''```json
+{
+    "recipient_id": "MODERATOR",
+    "message_type": "SUBMIT_STATEMENT",
+    "payload": {
+        "statement": "I argue that AI has tremendous positive potential for humanity. AI can solve complex problems in healthcare, help us understand climate change, and enhance human capabilities rather than replace them. The key is responsible development and deployment."
+    }
+}
+```'''
 
-        except subprocess.TimeoutExpired:
-            raise RuntimeError("Gemini API timeout")
-        except FileNotFoundError:
-            raise RuntimeError("Gemini command not available")
+        # デフォルト応答
+        return '''```json
+{
+    "recipient_id": "SYSTEM",
+    "message_type": "SYSTEM_ERROR",
+    "payload": {
+        "error": "No appropriate response pattern found"
+    }
+}
+```'''

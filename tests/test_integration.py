@@ -5,7 +5,7 @@
 """
 
 from main.domain.models import Message
-from agent_main import AgentOrchestrator
+from main.interfaces.agent_orchestrator import AgentOrchestrator
 import sys
 import os
 import tempfile
@@ -48,7 +48,7 @@ class TestAgentOrchestrator:
                 )
 
                 # メッセージ処理
-                result = orchestrator.handle_message(message)
+                result = orchestrator._handle_message(message)
 
                 # 結果検証
                 assert result is None  # 正常終了
@@ -63,7 +63,8 @@ class TestAgentOrchestrator:
                 assert posted_message is not None
                 assert posted_message.message_type == "SUBMIT_STATEMENT"
                 assert posted_message.sender_id == "DEBATER_A"
-                assert "AI is beneficial for humanity" in posted_message.payload["content"]
+                content = posted_message.payload["content"]
+                assert "AI is beneficial for humanity" in content
 
     def test_judge_judgement_flow(self):
         """ジャッジの判定フローの統合テスト"""
@@ -127,7 +128,7 @@ DEBATER_N 採点:
                 )
 
                 # メッセージ処理
-                result = orchestrator.handle_message(judgement_request)
+                result = orchestrator._handle_message(judgement_request)
 
                 # 結果検証
                 assert result is None
@@ -168,20 +169,21 @@ DEBATER_N 採点:
                     turn_id=1
                 )
 
-                # メッセージ処理（エラーが発生するはず）
-                result = orchestrator.handle_message(error_message)
+            # メッセージ処理（エラーが発生するはず）
+            result = orchestrator._handle_message(error_message)
 
-                # エラー時でも正常終了することを確認
-                assert result is None
+            # エラー時でも正常終了することを確認
+            assert result is None
 
-                # エラーメッセージが送信されたことを確認
-                error_notification = orchestrator.message_broker.get_message(
-                    "MODERATOR"
-                )
-                assert error_notification is not None
-                assert error_notification.message_type == "SYSTEM_ERROR"
-                assert error_notification.sender_id == "DEBATER_A"
-                assert "API rate limit exceeded" in error_notification.payload["content"]
+            # エラーメッセージが送信されたことを確認
+            error_notification = orchestrator.message_broker.get_message(
+                "MODERATOR"
+            )
+            assert error_notification is not None
+            assert error_notification.message_type == "SYSTEM_ERROR"
+            assert error_notification.sender_id == "DEBATER_A"
+            error_content = error_notification.payload["content"]
+            assert "API rate limit exceeded" in error_content
 
     def test_end_debate_signal(self):
         """討論終了シグナルのテスト"""
@@ -200,7 +202,7 @@ DEBATER_N 採点:
             )
 
             # メッセージ処理
-            result = orchestrator.handle_message(end_message)
+            result = orchestrator._handle_message(end_message)
 
             # EXIT を返すことを確認
             assert result == "EXIT"

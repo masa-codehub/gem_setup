@@ -110,41 +110,23 @@ mkdir -p "${DEBATE_DIR}"
 echo "🚀 Debate instance created at: ${DEBATE_DIR}"
 
 # Initialize the message broker database
-if [ "$USE_REACT_MODERATOR" = "true" ]; then
-    python3 -c "import message_broker; message_broker.initialize_db()"
-    echo "📬 Message Broker initialized (ReAct mode)"
-else
-    python3 message_broker.py init
-    echo "📬 Message Broker initialized (Traditional mode)"
-fi
+echo "📬 Initializing Message Broker (Clean Architecture)..."
+python3 -c "
+from main.infrastructure.message_broker import SqliteMessageBroker
+broker = SqliteMessageBroker()
+broker.initialize_db()
+print('Message Broker initialized successfully')
+"
 
 # --- Agent Launch ---
-if [ "$USE_REACT_MODERATOR" = "true" ]; then
-    echo "🤖 Launching ReAct-based debate system..."
-    
-    # Launch ReAct Moderator
-    export AGENT_ID="MODERATOR"
-    python3 react_moderator.py > "${DEBATE_DIR}/MODERATOR.log" 2>&1 &
-    echo "   -> Launched ReAct MODERATOR"
-    
-    # Launch other agents using agent_main.py
-    OTHER_AGENTS=("DEBATER_A" "DEBATER_N" "JUDGE_L" "JUDGE_E" "JUDGE_R" "ANALYST")
-    for AGENT in "${OTHER_AGENTS[@]}"; do
-        export AGENT_ID=${AGENT}
-        python3 agent_main.py > "${DEBATE_DIR}/${AGENT}.log" 2>&1 &
-        echo "   -> Launched ${AGENT}"
-    done
-else
-    # Traditional agent launch
-    AGENTS=("MODERATOR" "DEBATER_A" "DEBATER_N" "JUDGE_L" "JUDGE_E" "JUDGE_R" "ANALYST")
-    echo "🤖 Launching ${#AGENTS[@]} agents in traditional mode..."
-    
-    for AGENT in "${AGENTS[@]}"; do
-        export AGENT_ID=${AGENT}
-        python3 agent_main.py > "${DEBATE_DIR}/${AGENT}.log" 2>&1 &
-        echo "   -> Launched ${AGENT}"
-    done
-fi
+echo "🤖 Launching Clean Architecture debate system..."
+
+# Launch all agents using the new CLI interface
+AGENTS=("MODERATOR" "DEBATER_A" "DEBATER_N" "JUDGE_L" "JUDGE_E" "JUDGE_R" "ANALYST")
+for AGENT in "${AGENTS[@]}"; do
+    python3 -m main.interfaces.cli ${AGENT} --mode clean > "${DEBATE_DIR}/${AGENT}.log" 2>&1 &
+    echo "   -> Launched ${AGENT} (Clean Architecture)"
+done
 
 # Wait for agents to initialize
 echo "⏳ Waiting for agents to initialize..."
@@ -152,30 +134,27 @@ sleep 3
 
 # --- Debate Kickoff ---
 echo "🏁 Kicking off the debate..."
-INITIAL_MESSAGE='{"turn_id": 0, "timestamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'", "sender_id": "SYSTEM", "recipient_id": "MODERATOR", "message_type": "START_DEBATE", "payload": {"content": "The debate may now begin. Topic: The impact of artificial intelligence on humanity."}}'
 
-# Post the first message to the Moderator's queue
-if [ "$USE_REACT_MODERATOR" = "true" ]; then
-    python3 -c "
-import message_broker
-import json
-message = json.loads('${INITIAL_MESSAGE}')
-message_broker.post_message('MODERATOR', message)
+# Post the first message using Clean Architecture
+python3 -c "
+from main.infrastructure.message_broker import SqliteMessageBroker
+from main.domain.models import Message
+broker = SqliteMessageBroker()
+message = Message(
+    sender_id='SYSTEM',
+    recipient_id='MODERATOR', 
+    message_type='PROMPT_FOR_STATEMENT',
+    payload={'topic': 'The impact of artificial intelligence on humanity'},
+    turn_id=1
+)
+broker.post_message(message)
+print('Initial message sent to MODERATOR')
 "
-    echo "✅ Initial message sent to ReAct MODERATOR"
-else
-    python3 message_broker.py post "MODERATOR" "${INITIAL_MESSAGE}"
-    echo "✅ Initial message sent to Traditional MODERATOR"
-fi
+echo "✅ Debate kickoff message sent to MODERATOR (Clean Architecture)"
 
 # --- Monitoring ---
-if [ "$USE_REACT_MODERATOR" = "true" ]; then
-    echo "🗣️  ReAct-based debate in progress..."
-    echo "📊 The ReAct MODERATOR will autonomously manage the debate flow"
-else
-    echo "🗣️  Traditional debate in progress..."
-    echo "📊 Traditional MODERATOR managing debate flow"
-fi
+echo "🗣️  Clean Architecture debate in progress..."
+echo "📊 Advanced ReAct system managing debate flow autonomously"
 
 echo "   Log files are being written to: ${DEBATE_DIR}/"
 echo "   Message database: ${DEBATE_DIR}/messages.db"
@@ -199,26 +178,22 @@ while true; do
         break
     fi
     
-    # Check for debate completion (ReAct mode)
-    if [ "$USE_REACT_MODERATOR" = "true" ] && [ "$DEBATE_COMPLETED" = "false" ]; then
+    # Check for debate completion
+    if [ "$DEBATE_COMPLETED" = "false" ]; then
         END_COUNT=$(python3 -c "
-import sqlite3
-import json
+from main.infrastructure.message_broker import SqliteMessageBroker
 import os
-db_file = os.path.join('${DEBATE_DIR}', 'messages.db')
+os.environ['DEBATE_DIR'] = '${DEBATE_DIR}'
 try:
-    conn = sqlite3.connect(db_file)
-    cursor = conn.cursor()
-    cursor.execute(\"SELECT message_body FROM messages WHERE message_body LIKE '%END_DEBATE%'\")
-    results = cursor.fetchall()
-    conn.close()
-    print(len(results))
-except:
+    broker = SqliteMessageBroker()
+    history = broker.get_all_messages()
+    end_count = sum(1 for msg in history if msg.message_type == 'END_DEBATE')
+    print(end_count)
+except Exception as e:
     print(0)
 " 2>/dev/null)
-        
         if [ "$END_COUNT" -gt 0 ]; then
-            echo "🏁 END_DEBATE message detected. ReAct debate completed!"
+            echo "🏁 END_DEBATE message detected. Clean Architecture debate completed!"
             DEBATE_COMPLETED=true
             sleep 5  # Give agents time to shut down gracefully
             break
@@ -232,34 +207,23 @@ except:
         
         # Count total messages processed
         message_count=$(python3 -c "
-import sqlite3
+from main.infrastructure.message_broker import SqliteMessageBroker
 import os
-db_file = os.path.join('${DEBATE_DIR}', 'messages.db')
+os.environ['DEBATE_DIR'] = '${DEBATE_DIR}'
 try:
-    conn = sqlite3.connect(db_file)
-    cursor = conn.cursor()
-    cursor.execute('SELECT COUNT(*) FROM messages WHERE is_read = 1')
-    result = cursor.fetchone()
-    conn.close()
-    print(result[0] if result else 0)
-except:
+    broker = SqliteMessageBroker()
+    stats = broker.get_statistics()
+    print(stats['total_messages'])
+except Exception as e:
     print(0)
 " 2>/dev/null)
         echo "📨 Messages processed: ${message_count}"
         
         # Show agent activity
         if command -v pgrep > /dev/null 2>&1; then
-            if [ "$USE_REACT_MODERATOR" = "true" ]; then
-                active_agents=$(pgrep -f -c "react_moderator\|agent_main" 2>/dev/null || echo 0)
-            else
-                active_agents=$(pgrep -f -c "agent_main.py" 2>/dev/null || echo 0)
-            fi
+            active_agents=$(pgrep -f -c "main.interfaces.cli" 2>/dev/null || echo 0)
         elif command -v ps > /dev/null 2>&1; then
-            if [ "$USE_REACT_MODERATOR" = "true" ]; then
-                active_agents=$(ps aux | grep -E "(react_moderator|agent_main)" | grep -v grep | wc -l)
-            else
-                active_agents=$(ps aux | grep "agent_main.py" | grep -v grep | wc -l)
-            fi
+            active_agents=$(ps aux | grep "main.interfaces.cli" | grep -v grep | wc -l)
         else
             active_agents=$(jobs | wc -l)
         fi
