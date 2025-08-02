@@ -1,13 +1,232 @@
+#!/usr/bin/env python3
+"""
+統合エージェントメイン
+クリーンアーキテクチャ（Clean Architecture）と従来システムの統合版
+"""
+
 import os
 import subprocess
 import json
 import time
 import sqlite3
+from typing import Optional
+
+# クリーンアーキテクチャのインポート（利用可能な場合）
+try:
+    from main.application.use_cases import (
+        SubmitStatementUseCase,
+        SubmitRebuttalUseCase,
+        SubmitJudgementUseCase
+    )
+    from main.application.interfaces import (
+        IMessageBroker, IDebateHistoryService, IErrorNotificationService
+    )
+    from main.infrastructure.message_broker import SqliteMessageBroker
+    from main.infrastructure.gemini_service import GeminiService
+    from main.infrastructure.file_repository import FileBasedPromptRepository
+    from main.domain.models import Message
+    CLEAN_ARCHITECTURE_AVAILABLE = True
+    print("[SYSTEM] Clean Architecture modules loaded successfully")
+except ImportError as e:
+    CLEAN_ARCHITECTURE_AVAILABLE = False
+    print(f"[SYSTEM] Clean Architecture not available: {e}")
+    print("[SYSTEM] Falling back to legacy implementation")
 
 AGENT_ID = os.environ.get("AGENT_ID")
 DEBATE_DIR = os.environ.get("DEBATE_DIR")
 CONFIG_DIR = "./config"
 BROKER_CMD = ["python3", "message_broker.py"]
+
+
+# クリーンアーキテクチャサービスの実装（利用可能な場合）
+if CLEAN_ARCHITECTURE_AVAILABLE:
+    class DebateHistoryService(IDebateHistoryService):
+        """討論履歴管理サービス"""
+
+        def __init__(self, message_broker: IMessageBroker):
+            self.message_broker = message_broker
+            self.debate_dir = os.environ.get("DEBATE_DIR", ".")
+
+        def get_debate_history(self) -> list:
+            """これまでの討論履歴を取得する"""
+            try:
+                db_file = os.path.join(self.debate_dir, "messages.db")
+
+                import sqlite3
+                with sqlite3.connect(db_file) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        SELECT message_body FROM messages
+                        WHERE is_read = 1
+                        ORDER BY created_at
+                    """)
+                    rows = cursor.fetchall()
+
+                    history = []
+                    for row in rows:
+                        msg = json.loads(row['message_body'])
+                        if msg.get('message_type') in [
+                            'SUBMIT_STATEMENT', 'SUBMIT_REBUTTAL',
+                            'SUBMIT_CLOSING_STATEMENT', 'SUBMIT_JUDGEMENT'
+                        ]:
+                            history.append({
+                                'type': msg.get('message_type'),
+                                'sender': msg.get('sender_id'),
+                                'content': msg.get('payload', {}).get(
+                                    'content', ''
+                                )
+                            })
+                    return history
+            except Exception:
+                return []
+
+    class ErrorNotificationService(IErrorNotificationService):
+        """エラー通知サービス"""
+
+        def __init__(self, message_broker: IMessageBroker):
+            self.message_broker = message_broker
+
+        def notify_system_error(self, error_message: str,
+                                agent_id: str) -> None:
+            """システムエラーを通知する"""
+            timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+            error_msg = Message(
+                turn_id=-1,
+                timestamp=timestamp,
+                sender_id=agent_id,
+                recipient_id="MODERATOR",
+                message_type="SYSTEM_ERROR",
+                payload={
+                    "content": error_message,
+                    "error_agent": agent_id
+                }
+            )
+
+            try:
+                self.message_broker.post_message(error_msg)
+            except Exception:
+                pass  # エラー通知の失敗は無視
+
+    class AgentOrchestrator:
+        """クリーンアーキテクチャベースのエージェントオーケストレーター"""
+
+        def __init__(self, agent_id: str):
+            self.agent_id = agent_id
+
+            # インフラストラクチャ層の初期化
+            self.message_broker = SqliteMessageBroker()
+            self.llm_service = GeminiService()
+            self.prompt_repository = FileBasedPromptRepository()
+            self.history_service = DebateHistoryService(self.message_broker)
+            self.error_service = ErrorNotificationService(self.message_broker)
+
+            # ユースケースの初期化（依存性注入）
+            self.statement_use_case = SubmitStatementUseCase(
+                llm_service=self.llm_service,
+                message_broker=self.message_broker,
+                prompt_repository=self.prompt_repository
+            )
+
+            self.rebuttal_use_case = SubmitRebuttalUseCase(
+                llm_service=self.llm_service,
+                message_broker=self.message_broker,
+                prompt_repository=self.prompt_repository,
+                history_service=self.history_service
+            )
+
+            self.judgement_use_case = SubmitJudgementUseCase(
+                llm_service=self.llm_service,
+                message_broker=self.message_broker,
+                prompt_repository=self.prompt_repository,
+                history_service=self.history_service
+            )
+
+            # データベース初期化
+            self.message_broker.initialize_db()
+
+        def handle_message(self, message: Message) -> Optional[str]:
+            """メッセージ処理の統合ロジック"""
+            message_type = message.message_type
+            turn_id = message.turn_id
+            topic = "人工知能の発達は人類にとって有益か有害か"
+
+            try:
+                if message_type == "PROMPT_FOR_STATEMENT":
+                    self.statement_use_case.execute(
+                        topic, self.agent_id, turn_id
+                    )
+                    return None
+
+                elif message_type == "PROMPT_FOR_REBUTTAL":
+                    self.rebuttal_use_case.execute(
+                        topic, self.agent_id, turn_id
+                    )
+                    return None
+
+                elif message_type == "PROMPT_FOR_CLOSING_STATEMENT":
+                    # 最終弁論も反駁ユースケースを流用（履歴を使う）
+                    self.rebuttal_use_case.execute(
+                        topic, self.agent_id, turn_id
+                    )
+                    return None
+
+                elif message_type == "REQUEST_JUDGEMENT":
+                    if self.agent_id.startswith("JUDGE_"):
+                        self.judgement_use_case.execute(
+                            topic, self.agent_id, turn_id
+                        )
+                    return None
+
+                elif message_type == "END_DEBATE":
+                    return "EXIT"
+
+                # その他のメッセージは無視
+                return None
+
+            except RuntimeError as e:
+                self.error_service.notify_system_error(str(e), self.agent_id)
+                return None
+
+        def run_clean_architecture(self):
+            """クリーンアーキテクチャベースのメインループ"""
+            print(f"[{self.agent_id}] Clean Architecture Agent started")
+
+            while True:
+                try:
+                    # 新しいメッセージをチェック
+                    message = self.message_broker.get_message(self.agent_id)
+
+                    if message:
+                        print(f"[{self.agent_id}] Processing: "
+                              f"{message.message_type}")
+
+                        result = self.handle_message(message)
+
+                        if result == "EXIT":
+                            break
+
+                        if result:
+                            print(f"[{self.agent_id}] Result: {result}")
+
+                    # ポーリング間隔
+                    time.sleep(3)
+
+                except KeyboardInterrupt:
+                    print(f"\n[{self.agent_id}] Agent interrupted by user")
+                    break
+                except Exception as e:
+                    print(f"[{self.agent_id}] Error in main loop: {e}")
+                    self.error_service.notify_system_error(
+                        str(e), self.agent_id
+                    )
+                    time.sleep(5)
+
+            print(f"[{self.agent_id}] Agent shutting down")
+
+
+# 従来システムの関数群（既存互換性のため保持）
 
 
 def get_my_message():
@@ -914,5 +1133,45 @@ def main_loop():
         time.sleep(5)
 
 
+def main():
+    """統合メイン関数 - クリーンアーキテクチャと従来システムの統合"""
+    print(f"[{AGENT_ID}] Starting Integrated Agent System")
+
+    # エージェントID検証
+    if not AGENT_ID:
+        print("[ERROR] AGENT_ID environment variable not set")
+        return
+
+    # 環境変数によるアーキテクチャ選択
+    use_clean_architecture = (
+        os.environ.get("USE_CLEAN_ARCHITECTURE", "true").lower() == "true"
+    )
+
+    if CLEAN_ARCHITECTURE_AVAILABLE and use_clean_architecture:
+        print(f"[{AGENT_ID}] Using Clean Architecture implementation")
+
+        # モデレーター以外はクリーンアーキテクチャを使用
+        if AGENT_ID != "MODERATOR":
+            valid_agents = [
+                "DEBATER_A", "DEBATER_N", "JUDGE_L",
+                "JUDGE_E", "JUDGE_R", "ANALYST"
+            ]
+            if AGENT_ID not in valid_agents:
+                print(f"[{AGENT_ID}] Invalid agent ID. "
+                      f"Must be one of: {valid_agents}")
+                return
+
+            # クリーンアーキテクチャオーケストレーターを実行
+            orchestrator = AgentOrchestrator(AGENT_ID)
+            orchestrator.run_clean_architecture()
+        else:
+            # モデレーターは従来システムを使用
+            print(f"[{AGENT_ID}] MODERATOR using legacy system")
+            main_loop()
+    else:
+        print(f"[{AGENT_ID}] Using legacy implementation")
+        main_loop()
+
+
 if __name__ == "__main__":
-    main_loop()
+    main()
