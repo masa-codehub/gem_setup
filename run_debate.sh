@@ -1,90 +1,118 @@
 #!/bin/bash
 
 # =================================================================
-#  Master Orchestration Script for 6-Agent Debate System (v1.2)
-# =================================================================
-#
-#  This script now relies on gemini-cli to manage the MCP server.
-#
+#  Master Orchestration Script (v2.0 - Event-Driven)
 # =================================================================
 
 # --- Configuration ---
 PARENT_DIR="./debate_runs"
 CONFIG_DIR="./config"
 
-# --- Cleanup Function ---
-cleanup() {
-    echo "🧹 Cleaning up background processes..."
-    # kill 0 sends the signal to all processes in the current process group.
-    kill 0 || true
-}
-trap cleanup EXIT
-
-# --- Script Execution ---
 set -e
 
-echo "🚀 Initializing new debate instance..."
-
+# --- Initialization ---
 DEBATE_ID=$(date +'%Y%m%d-%H%M%S')
 export DEBATE_DIR="${PARENT_DIR}/${DEBATE_ID}"
 mkdir -p "${DEBATE_DIR}"
-touch "${DEBATE_DIR}/debate_transcript.json"
+TRANSCRIPT_FILE="${DEBATE_DIR}/debate_transcript.json"
+touch "${TRANSCRIPT_FILE}"
 
-echo "✅ Debate environment created successfully!"
-echo "   Directory: ${DEBATE_DIR}"
-echo "-----------------------------------------------------------------"
+echo "🚀 Debate instance created at: ${DEBATE_DIR}"
 
-# --- Agent Launch ---
-# The MCP server will be started automatically by the first gemini agent that needs it.
-echo "🤖 Launching 7 agents in the background..."
+# --- Helper Functions ---
 
-start_agent() {
-  local AGENT_ID=$1
-  local GEMINI_MD_PATH=$2
-  local SYSTEM_MD_PATH="${CONFIG_DIR}/debate_system.md"
-
-  export AGENT_ID
-  export GEMINI_SYSTEM_MD="${SYSTEM_MD_PATH}"
-  export GEMINI_MD="${GEMINI_MD_PATH}"
-
-  # The --allowed-mcp-server-names flag tells gemini which server from settings.json to use.
-  # Gemini will handle starting the server on the first use.
-  gemini --allowed-mcp-server-names DebateSystem -p "You are ${AGENT_ID}. Confirm your identity by stating 'I am ${AGENT_ID}' in your log, then use your tools to act. Monitor '${DEBATE_DIR}/debate_transcript.json'." > "${DEBATE_DIR}/${AGENT_ID}.log" 2>&1 &
+# Safely appends a message to the transcript using a lock file
+write_message() {
+  local message=$1
+  (
+    flock -x 200
+    echo "${message}" >> "${TRANSCRIPT_FILE}"
+  ) 200>"${DEBATE_DIR}/transcript.lock"
 }
 
-# Launch all 7 agents
-start_agent "MODERATOR" "${CONFIG_DIR}/moderator.md"
-start_agent "DEBATER_A" "${CONFIG_DIR}/debater_a.md"
-start_agent "DEBATER_N" "${CONFIG_DIR}/debater_n.md"
-start_agent "JUDGE_L"   "${CONFIG_DIR}/judge_l.md"
-start_agent "JUDGE_E"   "${CONFIG_DIR}/judge_e.md"
-start_agent "JUDGE_R"   "${CONFIG_DIR}/judge_r.md"
-start_agent "ANALYST"   "${CONFIG_DIR}/analyst.md"
+# Wakes up a specific agent to get its response
+invoke_agent() {
+  local agent_id=$1
+  local context=$2
+  
+  # For now, we'll create a simple mock response for testing
+  # In production, this would call the actual AI service
+  local turn_id=$(wc -l < "${TRANSCRIPT_FILE}")
+  local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  
+  echo "⚠️  MOCK MODE: Agent ${agent_id} would process: ${context}"
+  
+  # Mock different responses based on agent and context
+  case "${agent_id}" in
+    "MODERATOR")
+      if echo "${context}" | grep -q "START_DEBATE"; then
+        echo "{\"turn_id\": ${turn_id}, \"timestamp\": \"${timestamp}\", \"sender_id\": \"${agent_id}\", \"recipient_id\": \"DEBATER_A\", \"message_type\": \"PROMPT_FOR_STATEMENT\", \"payload\": {\"content\": \"Please provide your opening statement.\"}}"
+      else
+        echo "{\"turn_id\": ${turn_id}, \"timestamp\": \"${timestamp}\", \"sender_id\": \"${agent_id}\", \"recipient_id\": \"SYSTEM\", \"message_type\": \"END_DEBATE\", \"payload\": {\"content\": \"Debate concluded.\"}}"
+      fi
+      ;;
+    "DEBATER_A")
+      echo "{\"turn_id\": ${turn_id}, \"timestamp\": \"${timestamp}\", \"sender_id\": \"${agent_id}\", \"recipient_id\": \"MODERATOR\", \"message_type\": \"SUBMIT_STATEMENT\", \"payload\": {\"content\": \"This is my opening statement supporting the affirmative position.\"}}"
+      ;;
+    "DEBATER_N")
+      echo "{\"turn_id\": ${turn_id}, \"timestamp\": \"${timestamp}\", \"sender_id\": \"${agent_id}\", \"recipient_id\": \"MODERATOR\", \"message_type\": \"SUBMIT_STATEMENT\", \"payload\": {\"content\": \"This is my opening statement opposing the position.\"}}"
+      ;;
+    *)
+      echo "{\"turn_id\": ${turn_id}, \"timestamp\": \"${timestamp}\", \"sender_id\": \"${agent_id}\", \"recipient_id\": \"MODERATOR\", \"message_type\": \"MOCK_RESPONSE\", \"payload\": {\"content\": \"This is a mock response from ${agent_id}\"}}"
+      ;;
+  esac
+}
 
-# --- Debate Kickoff ---
-echo "🏁 Kicking off the debate..."
-sleep 5 # Wait for agents to initialize
+# --- Main Debate Loop ---
 
+# Kick off the debate
 INITIAL_MESSAGE='{"turn_id": 0, "timestamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'", "sender_id": "SYSTEM", "recipient_id": "MODERATOR", "message_type": "START_DEBATE", "payload": {"content": "The debate may now begin."}}'
+write_message "${INITIAL_MESSAGE}"
+echo "🏁 Debate started."
 
-# The MODERATOR agent is now responsible for processing the START_DEBATE message.
-# We no longer need a special command to write the initial message.
-echo "${INITIAL_MESSAGE}" >> "${DEBATE_DIR}/debate_transcript.json"
+TURN_COUNT=1
+MAX_TURNS=30 # Set a max number of turns to prevent infinite loops
 
-# --- Monitoring ---
-echo "🗣️ Debate in progress. Monitoring for completion..."
-MAX_CHECKS=60 # 10 minutes timeout
-CHECKS_DONE=0
+while [ ${TURN_COUNT} -lt ${MAX_TURNS} ]; do
+  echo "--- Turn ${TURN_COUNT} ---"
+  
+  # 1. Get the last message to determine who should act next
+  LAST_MESSAGE=$(tail -n 1 "${TRANSCRIPT_FILE}")
+  RECIPIENT=$(echo "${LAST_MESSAGE}" | jq -r '.recipient_id')
+  MESSAGE_TYPE=$(echo "${LAST_MESSAGE}" | jq -r '.message_type')
 
-while ! grep -q '"message_type": "END_DEBATE"' "${DEBATE_DIR}/debate_transcript.json"; do
-    if [ ${CHECKS_DONE} -ge ${MAX_CHECKS} ]; then
-        echo "⏰ TIMEOUT: Debate did not conclude within the time limit."
-        break
-    fi
-    sleep 10
-    CHECKS_DONE=$((CHECKS_DONE + 1))
+  # 2. Check for the end of the debate
+  if [ "${MESSAGE_TYPE}" == "END_DEBATE" ]; then
+    echo "✅ END_DEBATE message received. Concluding simulation."
+    break
+  fi
+
+  # 3. Determine the next agent to invoke
+  # For simplicity, we'll invoke the recipient directly.
+  # A more complex system could parse the message type.
+  NEXT_AGENT=${RECIPIENT}
+  
+  echo "🗣️  Invoking ${NEXT_AGENT}..."
+
+  # 4. Invoke the agent and get its response
+  # We pass the last message as the primary context.
+  AGENT_RESPONSE=$(invoke_agent "${NEXT_AGENT}" "${LAST_MESSAGE}")
+
+  # 5. Write the agent's response to the transcript
+  if [ -n "${AGENT_RESPONSE}" ]; then
+    write_message "${AGENT_RESPONSE}"
+    echo "   -> ${NEXT_AGENT} responded."
+  else
+    echo "⚠️  Agent ${NEXT_AGENT} did not respond. Ending debate."
+    break
+  fi
+  
+  TURN_COUNT=$((TURN_COUNT + 1))
+  sleep 1 # A small delay to prevent rapid-fire requests
 done
 
-echo "✅ Debate has concluded or timed out."
+if [ ${TURN_COUNT} -ge ${MAX_TURNS} ]; then
+    echo "⏰ TIMEOUT: Maximum turn count reached."
+fi
+
 echo "✨ Simulation complete."
-# The 'trap cleanup EXIT' will handle the termination of all processes.
