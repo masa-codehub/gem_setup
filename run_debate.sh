@@ -1,90 +1,178 @@
 #!/bin/bash
 
 # =================================================================
-#  Master Orchestration Script for 6-Agent Debate System (v1.2)
+#  Master Debate Orchestration Script (v4.0 - Unified Message Queue)
 # =================================================================
-#
-#  This script now relies on gemini-cli to manage the MCP server.
-#
-# =================================================================
-
-# --- Configuration ---
-PARENT_DIR="./debate_runs"
-CONFIG_DIR="./config"
 
 # --- Cleanup Function ---
 cleanup() {
     echo "🧹 Cleaning up background processes..."
-    # kill 0 sends the signal to all processes in the current process group.
-    kill 0 || true
+    # Use different approaches to find and kill processes
+    if command -v pkill > /dev/null 2>&1; then
+        pkill -f "agent_main.py" 2>/dev/null || true
+    elif command -v ps > /dev/null 2>&1; then
+        # Use ps if available
+        ps aux | grep "agent_main.py" | grep -v grep | awk '{print $2}' | xargs -r kill 2>/dev/null || true
+    else
+        # Alternative: kill by process name patterns
+        kill $(jobs -p) 2>/dev/null || true
+    fi
+    echo "✨ Simulation complete."
 }
 trap cleanup EXIT
 
-# --- Script Execution ---
-set -e
+# --- Configuration ---
+PARENT_DIR="./debate_runs"
+CONFIG_DIR="./config"
+TIMEOUT_DURATION=${TIMEOUT_DURATION:-600}  # Default 10 minutes, can be overridden
 
-echo "🚀 Initializing new debate instance..."
-
+# --- Initialization ---
 DEBATE_ID=$(date +'%Y%m%d-%H%M%S')
 export DEBATE_DIR="${PARENT_DIR}/${DEBATE_ID}"
 mkdir -p "${DEBATE_DIR}"
-touch "${DEBATE_DIR}/debate_transcript.json"
+echo "🚀 Debate instance created at: ${DEBATE_DIR}"
 
-echo "✅ Debate environment created successfully!"
-echo "   Directory: ${DEBATE_DIR}"
-echo "-----------------------------------------------------------------"
+# Initialize the message broker database
+python3 message_broker.py init
+echo "📬 Message Broker initialized."
 
 # --- Agent Launch ---
-# The MCP server will be started automatically by the first gemini agent that needs it.
-echo "🤖 Launching 7 agents in the background..."
+AGENTS=("MODERATOR" "DEBATER_A" "DEBATER_N" "JUDGE_L" "JUDGE_E" "JUDGE_R" "ANALYST")
+echo "🤖 Launching ${#AGENTS[@]} agents in the background..."
 
-start_agent() {
-  local AGENT_ID=$1
-  local GEMINI_MD_PATH=$2
-  local SYSTEM_MD_PATH="${CONFIG_DIR}/debate_system.md"
+for AGENT in "${AGENTS[@]}"; do
+  export AGENT_ID=${AGENT}
+  python3 agent_main.py > "${DEBATE_DIR}/${AGENT}.log" 2>&1 &
+  echo "   -> Launched ${AGENT}"
+done
 
-  export AGENT_ID
-  export GEMINI_SYSTEM_MD="${SYSTEM_MD_PATH}"
-  export GEMINI_MD="${GEMINI_MD_PATH}"
-
-  # The --allowed-mcp-server-names flag tells gemini which server from settings.json to use.
-  # Gemini will handle starting the server on the first use.
-  gemini --allowed-mcp-server-names DebateSystem -p "You are ${AGENT_ID}. Confirm your identity by stating 'I am ${AGENT_ID}' in your log, then use your tools to act. Monitor '${DEBATE_DIR}/debate_transcript.json'." > "${DEBATE_DIR}/${AGENT_ID}.log" 2>&1 &
-}
-
-# Launch all 7 agents
-start_agent "MODERATOR" "${CONFIG_DIR}/moderator.md"
-start_agent "DEBATER_A" "${CONFIG_DIR}/debater_a.md"
-start_agent "DEBATER_N" "${CONFIG_DIR}/debater_n.md"
-start_agent "JUDGE_L"   "${CONFIG_DIR}/judge_l.md"
-start_agent "JUDGE_E"   "${CONFIG_DIR}/judge_e.md"
-start_agent "JUDGE_R"   "${CONFIG_DIR}/judge_r.md"
-start_agent "ANALYST"   "${CONFIG_DIR}/analyst.md"
+# Wait for agents to initialize
+echo "⏳ Waiting for agents to initialize..."
+sleep 3
 
 # --- Debate Kickoff ---
 echo "🏁 Kicking off the debate..."
-sleep 5 # Wait for agents to initialize
+INITIAL_MESSAGE='{"turn_id": 0, "timestamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'", "sender_id": "SYSTEM", "recipient_id": "MODERATOR", "message_type": "START_DEBATE", "payload": {"content": "The debate may now begin. Topic: The impact of artificial intelligence on humanity."}}'
 
-INITIAL_MESSAGE='{"turn_id": 0, "timestamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'", "sender_id": "SYSTEM", "recipient_id": "MODERATOR", "message_type": "START_DEBATE", "payload": {"content": "The debate may now begin."}}'
-
-# The MODERATOR agent is now responsible for processing the START_DEBATE message.
-# We no longer need a special command to write the initial message.
-echo "${INITIAL_MESSAGE}" >> "${DEBATE_DIR}/debate_transcript.json"
+# Post the first message to the Moderator's queue
+python3 message_broker.py post "MODERATOR" "${INITIAL_MESSAGE}"
+echo "✅ Initial message sent to MODERATOR"
 
 # --- Monitoring ---
-echo "🗣️ Debate in progress. Monitoring for completion..."
-MAX_CHECKS=60 # 10 minutes timeout
-CHECKS_DONE=0
+echo "🗣️  Debate in progress. Monitoring logs in ${DEBATE_DIR}"
+echo "📊 Starting real-time monitoring..."
+echo "   Log files are being written to: ${DEBATE_DIR}/"
+echo "   Message database: ${DEBATE_DIR}/messages.db"
+echo "   Press Ctrl+C to stop the debate early"
+echo "   Timeout: ${TIMEOUT_DURATION} seconds"
 
-while ! grep -q '"message_type": "END_DEBATE"' "${DEBATE_DIR}/debate_transcript.json"; do
-    if [ ${CHECKS_DONE} -ge ${MAX_CHECKS} ]; then
-        echo "⏰ TIMEOUT: Debate did not conclude within the time limit."
+# Monitor the debate progress
+START_TIME=$(date +%s)
+LAST_PROGRESS_TIME=0
+
+while true; do
+    current_time=$(date +%s)
+    elapsed=$((current_time - START_TIME))
+    
+    # Check if timeout reached
+    if [ $elapsed -ge $TIMEOUT_DURATION ]; then
+        echo "⏰ TIMEOUT reached after ${TIMEOUT_DURATION} seconds. Shutting down."
         break
     fi
-    sleep 10
-    CHECKS_DONE=$((CHECKS_DONE + 1))
+    
+    # Show progress every 30 seconds
+    if [ $((elapsed % 30)) -eq 0 ] && [ $elapsed -gt 0 ] && [ $elapsed -ne $LAST_PROGRESS_TIME ]; then
+        LAST_PROGRESS_TIME=$elapsed
+        echo "⏱️  Elapsed time: ${elapsed}s / ${TIMEOUT_DURATION}s"
+        
+        # Count total messages processed
+        message_count=$(python3 -c "
+import sqlite3
+import os
+db_file = os.path.join('${DEBATE_DIR}', 'messages.db')
+try:
+    conn = sqlite3.connect(db_file)
+    cursor = conn.cursor()
+    cursor.execute('SELECT COUNT(*) FROM messages WHERE is_read = 1')
+    result = cursor.fetchone()
+    conn.close()
+    print(result[0] if result else 0)
+except:
+    print(0)
+" 2>/dev/null)
+        echo "📨 Messages processed: ${message_count}"
+        
+        # Show agent activity (check if agents are still running)
+        if command -v pgrep > /dev/null 2>&1; then
+            active_agents=$(pgrep -f "agent_main.py" 2>/dev/null | wc -l)
+        elif command -v ps > /dev/null 2>&1; then
+            active_agents=$(ps aux | grep "agent_main.py" | grep -v grep | wc -l)
+        else
+            # Alternative: check background jobs
+            active_agents=$(jobs | wc -l)
+        fi
+        echo "🤖 Active agents: ${active_agents}"
+    fi
+    
+    sleep 5
 done
 
-echo "✅ Debate has concluded or timed out."
-echo "✨ Simulation complete."
-# The 'trap cleanup EXIT' will handle the termination of all processes.
+echo "🔄 Final statistics and cleanup:"
+# Generate final report using enhanced message broker
+python3 -c "
+import sqlite3
+import os
+import json
+
+db_file = os.path.join('${DEBATE_DIR}', 'messages.db')
+try:
+    conn = sqlite3.connect(db_file)
+    cursor = conn.cursor()
+    
+    # Count messages per agent
+    cursor.execute('SELECT recipient_id, COUNT(*) FROM messages GROUP BY recipient_id')
+    results = cursor.fetchall()
+    
+    print('📊 Message distribution:')
+    for agent, count in results:
+        print(f'   {agent}: {count} messages')
+    
+    # Count total processed messages
+    cursor.execute('SELECT COUNT(*) FROM messages WHERE is_read = 1')
+    processed = cursor.fetchone()[0]
+    cursor.execute('SELECT COUNT(*) FROM messages')
+    total = cursor.fetchone()[0]
+    
+    print(f'📈 Processing rate: {processed}/{total} messages processed')
+    
+    # Show message types distribution
+    cursor.execute('''
+        SELECT json_extract(message_body, '$.message_type') as msg_type, 
+               COUNT(*) as count 
+        FROM messages 
+        WHERE json_extract(message_body, '$.message_type') IS NOT NULL
+        GROUP BY msg_type
+    ''')
+    msg_types = cursor.fetchall()
+    
+    if msg_types:
+        print('📋 Message types:')
+        for msg_type, count in msg_types:
+            print(f'   {msg_type}: {count}')
+    
+    conn.close()
+except Exception as e:
+    print(f'❌ Error generating statistics: {e}')
+"
+
+echo ""
+echo "📁 Results saved in: ${DEBATE_DIR}"
+echo "   - Individual agent logs: *.log files"
+echo "   - Message database: messages.db"
+echo "   - Analysis report: debate_analysis_report.md (if generated)"
+echo "   - Use 'python3 message_broker.py stats' in the debate directory for detailed stats"
+echo ""
+echo "🎯 To analyze results:"
+echo "   cd ${DEBATE_DIR}"
+echo "   python3 ../message_broker.py stats"
+echo "   cat debate_analysis_report.md  # View analysis report"

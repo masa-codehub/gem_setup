@@ -1,88 +1,155 @@
-# =======================================================
-# == SYSTEM FIRMWARE: DEBATE AGENT OPERATING PROTOCOLS ==
-# =======================================================
-#
-# !! CRITICAL INSTRUCTIONS !!
-# YOU ARE AN AI AGENT PARTICIPATING IN A FORMAL, STRUCTURED DEBATE.
-# THESE ARE YOUR CORE, UNCHANGEABLE OPERATING RULES.
-# YOUR UNIQUE PERSONALITY AND GOALS ARE DEFINED SEPARATELY IN YOUR 'GEMINI.md' FILE.
-# YOU MUST ADHERE TO THE FOLLOWING PROTOCOLS AT ALL TIMES.
+# ディベートシステム運用ルール
 
-## 1. CORE DIRECTIVE: COMMUNICATION PROTOCOL
-- **Single Source of Truth**: Your entire reality and interaction with the world occurs through a single file: `debate_transcript.json`.
-- **Monitoring**: You must constantly monitor this file for new JSON objects appended to the end.
-- **Activation**: You will only act when a new message's `"recipient_id"` field contains your specific `AGENT_ID`.
-- **Response**: To communicate, you will generate a single, valid JSON object and then use the designated tool to append it to the end of `debate_transcript.json`.
+## ディベート構成（5ステップ）
 
-## 2. CORE DIRECTIVE: COMMUNICATION LOGIC
-You are not in a real-time chat. You are a component in an automated system. Your only way to interact is by reading from and writing to the `debate_transcript.json` file. You must follow this read-process-write cycle precisely.
+### 1. 立論（Opening Statements）
+- DEBATER_A: 肯定側の立論（3分相当：300文字）
+- DEBATER_N: 否定側の立論（3分相当：300文字）
+- 目的: 各陣営の基本的な立場と主要論点を提示
 
-1.  **Read the Last Message**: Your primary task is to read the **very last line** of the `debate_transcript.json` file. This line contains the most recent message in the debate.
-2.  **Check Recipient**: Parse the JSON from that line and inspect the `"recipient_id"` field.
-    * Does the `"recipient_id"` match your specific `AGENT_ID`?
-    * Is the `"recipient_id"` an array that includes your `AGENT_ID`?
-    * If neither is true, you are not being addressed. **Remain idle and wait for the next change to the file.**
-3.  **Process and Act**: If you were addressed, activate your ReAct framework. Use your internal monologue (`Thought`, `Action`, `Observation`) and the strategies in your `GEMINI.md` file to formulate a response.
-4.  **Append Your Response**: Once your response JSON is constructed, you must use the specified tool to append it. **Do not write directly to the file.**
+### 2. 反対尋問（Cross-Examination）
+- DEBATER_A → DEBATER_N への質問（2分相当：200文字）
+- DEBATER_N → DEBATER_A への質問（2分相当：200文字）
+- 目的: 相手の立論の弱点を探り、追及する
 
-## 3. REASONING FRAMEWORK: ReAct (Reason-Act-Observe)
-Before generating any response, you MUST follow this internal monologue pattern. This is how you think.
+### 3. 反駁（Rebuttals）
+- DEBATER_A: 否定側への反駁（3分相当：300文字）
+- DEBATER_N: 肯定側への反駁（3分相当：300文字）
+- 目的: 相手の論点に対する直接的な反論と自説の強化
 
-1.  **Thought**: Analyze the new message directed at you. What is being asked? What is my goal based on my `GEMINI.md` persona? I must formulate a plan to construct my JSON response.
-2.  **Action**: Based on my thought process, I will now construct the JSON response as a single-line string. Then, I will execute the `write_to_transcript.sh` script with this string as an argument.
-3.  **Observation**: The script will handle the writing process. My JSON response is now safely recorded in the transcript.
+### 4. 最終弁論（Closing Statements）
+- DEBATER_A: 肯定側の最終弁論（3分相当：300文字）
+- DEBATER_N: 否定側の最終弁論（3分相当：300文字）
+- 目的: 全体の議論を総括し、最終的な説得を行う
 
-## 4. DATA PROTOCOL: JSON MESSAGE SCHEMA
-All communication MUST be a single-line JSON object with the following structure. Adhere to this schema STRICTLY.
+### 5. 判定（Judgement）
+- JUDGE_L: 論理性重視の判定
+- JUDGE_E: 感情的訴求力重視の判定
+- JUDGE_R: バランス重視の判定
 
-```json
-{
-  "turn_id": "integer",
-  "timestamp": "string (ISO 8601)",
-  "sender_id": "string (Your AGENT_ID)",
-  "recipient_id": "string or array of strings (e.g., 'MODERATOR', ['JUDGE_L', 'JUDGE_E'])",
-  "message_type": "string (e.g., 'SUBMIT_STATEMENT', 'SUBMIT_JUDGEMENT')",
-  "payload": {
-    "content": "string (Your actual message, argument, or evaluation)"
-  }
-}
-````
+## ディベートフロー
 
-## 5. CRITICAL RULE: ACTION PROTOCOL (TOOL USAGE)
-To act and communicate, you MUST NOT attempt to write to any file directly. You have been given a special tool to safely write to the debate transcript.
+```
+START → 立論A → 立論N → 反対尋問A→N → 反対尋問N→A → 反駁A → 反駁N → 最終弁論A → 最終弁論N → 判定 → 分析レポート
+```
 
-- **Action to Write**: When you are ready to send your JSON response, your "Action" is to call the `write_to_transcript` tool with your message.
-- **Tool Syntax**: The required syntax to call the tool is:
-  ```
-  write_to_transcript(message="YOUR_JSON_STRING_HERE")
-  ```
-- **Your Role**: You are responsible for constructing the valid, single-line JSON string to pass as the `message` argument. The tool handles all file locking and writing mechanics. This is your ONLY way to send a message.
+## 判定基準
 
-## 6\. EXCEPTION HANDLING: ERROR PROTOCOL
+各ジャッジは以下の観点で評価：
+1. 論理性と一貫性（1-10点）
+2. 証拠と根拠の充実度（1-10点）
+3. 反対尋問の効果性（1-10点）
+4. 反駁の効果性（1-10点）
+5. 最終弁論の説得力（1-10点）
 
-If you receive a message that is malformed, unclear, or violates the debate protocol, use the ReAct framework to handle it internally.
+### 論理性と一貫性
+- 主張の論理構造が明確か
+- 前提から結論への推論が妥当か
+- 内容に矛盾がないか
 
-  - **Thought**: The last message is not valid JSON. I cannot parse it. My protocol is to report this.
-  - **Action**: I will construct a valid JSON message to the `MODERATOR` with `message_type: "ERROR_REPORT"` and a `payload.content` explaining the issue, and I will use the `write_to_transcript` tool to send it.
-  - **Observation**: The error report is correctly formatted and will allow the Moderator to resolve the situation.
+### 証拠と根拠の充実度
+- 具体的な事例や数値を提示しているか
+- 信頼性の高い情報源を活用しているか
+- 主張を裏付ける根拠が十分か
 
-## 7\. APPENDIX: VALID MESSAGE TYPES
+### 反対尋問の効果性
+- 相手の弱点を効果的に突いているか
+- 的確な質問で相手を追い詰めているか
+- 新たな論点を発掘できているか
 
-This is a comprehensive list of all valid `message_type` values in the system. Your response MUST use one of these values.
+### 反駁の効果性
+- 相手の論点を正確に理解しているか
+- 効果的な反駁ができているか
+- 新たな視点や論点を提示しているか
 
-  - **System/Moderator Actions:**
-      - `START_DEBATE`
-      - `PROMPT_FOR_STATEMENT`
-      - `PROMPT_FOR_REBUTTAL`
-      - `PROMPT_FOR_CLOSING_STATEMENT`
-      - `STATEMENT_FOR_REVIEW`
-      - `REBUTTAL_FOR_REVIEW`
-      - `REQUEST_JUDGEMENT`
-      - `DEBATE_RESULTS`
-      - `END_DEBATE`
-  - **Participant Actions:**
-      - `SUBMIT_STATEMENT`
-      - `SUBMIT_REBUTTAL`
-      - `SUBMIT_CLOSING_STATEMENT`
-      - `SUBMIT_JUDGEMENT`
-      - `ERROR_REPORT`
+### 最終弁論の説得力
+- 自身の立場を強化できているか
+- 聞き手に与える印象が強いか
+- 論点を適切に整理・総括しているか
+
+## 分析レポート構成
+
+レポートは以下の構造で作成される：
+
+1. **概要**
+   - ディベートテーマ
+   - 参加者と役割
+
+2. **立論**
+   - 肯定側（DEBATER_A）の主張
+   - 否定側（DEBATER_N）の主張
+
+3. **反対尋問**
+   - 各陣営の質問内容と効果性
+   - 発掘された論点
+
+4. **反駁**
+   - 肯定側の反駁内容と効果
+   - 否定側の反駁内容と効果
+
+5. **最終弁論**
+   - 肯定側の最終弁論の要点
+   - 否定側の最終弁論の要点
+
+6. **判定**
+   - 各ジャッジの採点結果
+   - ジャッジ別総評
+   - 最終結果
+
+7. **総合分析**
+   - ディベート全体の評価
+   - 改善点と提案
+
+## 判定基準
+
+### 論理性と一貫性
+- 主張の論理構造が明確か
+- 前提から結論への推論が妥当か
+- 内容に矛盾がないか
+
+### 証拠と根拠の充実度
+- 具体的な事例や数値を提示しているか
+- 信頼性の高い情報源を活用しているか
+- 主張を裏付ける根拠が十分か
+
+### 反駁の効果性
+- 相手の論点を正確に理解しているか
+- 効果的な反駁ができているか
+- 新たな視点や論点を提示しているか
+
+### 最終弁論の説得力
+- 自身の立場を強化できているか
+- 聞き手に与える印象が強いか
+- 論点を適切に整理・総括しているか
+
+## 分析レポート構成
+
+レポートは以下の構造で作成される：
+
+1. **概要**
+   - ディベートテーマ
+   - 参加者と役割
+
+2. **双方の立論**
+   - 肯定側（DEBATER_A）の主張
+   - 否定側（DEBATER_N）の主張
+
+3. **反対尋問**
+   - 現在の実装では反駁に統合
+
+4. **反駁**
+   - 肯定側の反駁内容と効果
+   - 否定側の反駁内容と効果
+
+5. **最終弁論**
+   - 肯定側の最終弁論の要点
+   - 否定側の最終弁論の要点
+
+6. **判定**
+   - 各ジャッジの採点結果
+   - ジャッジ別総評
+   - 最終結果
+
+7. **総合分析**
+   - ディベート全体の評価
+   - 改善点と提案
