@@ -10,6 +10,8 @@
 
 # -- STATE TRANSITIONS --
 
+# If `PROMPT_FOR_STATEMENT` from `SYSTEM`: Start the debate by sending `PROMPT_FOR_STATEMENT` to `DEBATER_A`.
+
 # If `START_DEBATE`: Send `PROMPT_FOR_STATEMENT` to `DEBATER_A`.
 
 # If `SUBMIT_STATEMENT` from `DEBATER_A`: 

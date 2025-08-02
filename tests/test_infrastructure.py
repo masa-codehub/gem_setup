@@ -161,26 +161,35 @@ class TestIntegrationWithExistingSystem:
     """既存システムとの統合テスト"""
 
     def test_existing_message_broker_compatibility(self):
-        """既存のメッセージブローカーとの互換性テスト"""
-        # 現在のmessage_broker.pyの関数をテスト
-        import message_broker
+        """既存のメッセージブローカーとの互換性テスト（新実装使用）"""
+        # 新しいSqliteMessageBrokerで既存の機能をテスト
+        import tempfile
+        import os
 
-        # 初期化テスト
-        message_broker.initialize_db()
+        # 一時ファイルでテストデータベースを作成
+        temp_db = tempfile.NamedTemporaryFile(delete=False)
+        temp_db.close()
 
-        # メッセージ投稿・取得のテスト用データ
-        test_message = {
-            "turn_id": 1,
-            "timestamp": "2025-08-02T12:00:00Z",
-            "sender_id": "MODERATOR",
-            "recipient_id": "DEBATER_A",
-            "message_type": "PROMPT_FOR_STATEMENT",
-            "payload": {"topic": "AI benefits"}
-        }
+        try:
+            broker = SqliteMessageBroker(temp_db.name)
+            broker.initialize_db()
 
-        # 既存関数の動作確認
-        message_broker.post_message("DEBATER_A", test_message)
-        retrieved = message_broker.get_message("DEBATER_A")
+            # テスト用のメッセージデータ
+            test_message = Message(
+                sender_id="MODERATOR",
+                recipient_id="DEBATER_A",
+                message_type="PROMPT_FOR_STATEMENT",
+                payload={"topic": "AI benefits"},
+                turn_id=1
+            )
 
-        assert retrieved is not None
-        assert retrieved["message_type"] == "PROMPT_FOR_STATEMENT"
+            # 新実装での動作確認
+            broker.post_message(test_message)
+            retrieved = broker.get_message("DEBATER_A")
+
+            assert retrieved is not None
+            assert retrieved.message_type == "PROMPT_FOR_STATEMENT"
+            assert retrieved.sender_id == "MODERATOR"
+        finally:
+            # クリーンアップ
+            os.unlink(temp_db.name)
