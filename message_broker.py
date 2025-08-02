@@ -35,7 +35,7 @@ def post_message(recipient_id: str, message_body: dict):
     print(f"📮 Posted for {recipient_id} (type: {msg_type})", file=sys.stderr)
 
 
-def get_message(recipient_id: str):
+def get_message(recipient_id: str) -> dict | None:
     """指定された受信者宛の未読メッセージを1件取得し、既読にする"""
     with sqlite3.connect(DB_FILE) as conn:
         conn.row_factory = sqlite3.Row
