@@ -124,7 +124,7 @@ class TestPlatformSupervisor(unittest.TestCase):
         # Assert - MODERATORにメッセージが送信される
         message = supervisor.message_bus.get_message("MODERATOR")
         self.assertIsNotNone(message)
-        self.assertEqual(message.message_type, "PROMPT_FOR_STATEMENT")
+        self.assertEqual(message.message_type, "INITIATE_DEBATE")
 
 
 if __name__ == '__main__':

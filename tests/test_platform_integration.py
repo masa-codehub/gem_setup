@@ -76,7 +76,7 @@ class TestPlatformIntegration(unittest.TestCase):
         supervisor.post_initial_message("The benefits of AI for humanity")
         message = supervisor.message_bus.get_message("MODERATOR")
         self.assertIsNotNone(message)
-        self.assertEqual(message.message_type, "PROMPT_FOR_STATEMENT")
+        self.assertEqual(message.message_type, "INITIATE_DEBATE")
 
         # 4. プロセス監視
         self.assertTrue(supervisor.are_agents_running())

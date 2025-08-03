@@ -70,48 +70,123 @@ class TestSqliteMessageBroker:
 
 
 class TestGeminiService:
-    """Geminiサービスのテスト"""
+    """Geminiサービスのテスト - 新アーキテクチャ対応"""
 
     def test_generate_response_success(self):
         """正常なレスポンス生成のテスト - 新アーキテクチャ対応"""
-        service = GeminiService()
+        from main.infrastructure.file_repository import (
+            FileBasedPromptRepository
+        )
+        from main.infrastructure.prompt_injector_service import (
+            PromptInjectorService
+        )
+        from main.domain.models import Message
+        from unittest.mock import Mock, patch
 
-        # 既知のパターンでテスト
-        prompt = "MODERATOR prompt with PROMPT_FOR_STATEMENT"
-        response = service.generate_response(prompt)
+        # モックプロンプトリポジトリを作成
+        mock_repo = Mock(spec=FileBasedPromptRepository)
+        mock_repo.get_persona.return_value = "You are a test agent."
 
-        # 現在の実装では常にJSON形式で返される
-        assert "```json" in response
-        assert "recipient_id" in response
-        assert "message_type" in response
-        assert "payload" in response
+        # プロンプトインジェクターとGeminiServiceを初期化
+        prompt_injector = PromptInjectorService(mock_repo)
+        service = GeminiService(prompt_injector)
+
+        # テスト用のメッセージを作成
+        test_message = Message(
+            recipient_id="DEBATER_A",
+            sender_id="MODERATOR",
+            message_type="PROMPT_FOR_STATEMENT",
+            payload={"topic": "AI benefits"},
+            turn_id=1
+        )
+
+        # 新しいインターフェースでテスト
+        with patch.object(service, '_call_gemini_cli',
+                          return_value='{"content": "test response"}'):
+            response = service.generate_response("DEBATER_A", test_message)
+
+            assert response.recipient_id == "MODERATOR"  # fallback response
+            assert response.sender_id == "DEBATER_A"
+            assert response.message_type == "RESPONSE"
+            assert "test response" in response.payload["content"]
 
     def test_generate_response_with_system_prompt(self):
         """システムプロンプト付きレスポンス生成のテスト - 新アーキテクチャ対応"""
-        service = GeminiService()
+        from main.infrastructure.file_repository import (
+            FileBasedPromptRepository
+        )
+        from main.infrastructure.prompt_injector_service import (
+            PromptInjectorService
+        )
+        from main.domain.models import Message
+        from unittest.mock import Mock, patch
 
-        # DEBATER_Aのパターンでテスト
-        response = service.generate_response(
-            "DEBATER_A prompt with PROMPT_FOR_STATEMENT",
-            system_prompt="System instruction"
+        # モックプロンプトリポジトリを作成
+        mock_repo = Mock(spec=FileBasedPromptRepository)
+        mock_repo.get_persona.return_value = (
+            "You are a test agent with system rules."
         )
 
-        # 現在の実装では常にJSON形式で返される
-        assert "```json" in response
-        assert "MODERATOR" in response  # DEBATER_Aは通常MODERATORに送信
-        assert "SUBMIT_STATEMENT" in response
+        prompt_injector = PromptInjectorService(mock_repo)
+        service = GeminiService(prompt_injector)
+
+        test_message = Message(
+            recipient_id="DEBATER_A",
+            sender_id="MODERATOR",
+            message_type="PROMPT_FOR_STATEMENT",
+            payload={"topic": "AI benefits", "instructions": "Be precise"},
+            turn_id=1
+        )
+
+        json_response = ('```json\n'
+                         '{"recipient_id": "MODERATOR", '
+                         '"message_type": "SUBMIT_STATEMENT", '
+                         '"payload": {"statement": "test"}}\n```')
+
+        with patch.object(service, '_call_gemini_cli',
+                          return_value=json_response):
+            response = service.generate_response("DEBATER_A", test_message)
+
+            assert response.recipient_id == "MODERATOR"
+            assert response.message_type == "SUBMIT_STATEMENT"
+            assert response.payload["statement"] == "test"
 
     def test_generate_response_error(self):
         """エラー時のテスト - 新アーキテクチャ対応"""
-        service = GeminiService()
+        from main.infrastructure.file_repository import (
+            FileBasedPromptRepository
+        )
+        from main.infrastructure.prompt_injector_service import (
+            PromptInjectorService
+        )
+        from main.domain.models import Message
+        from unittest.mock import Mock, patch
 
-        # 現在の実装では例外を投げず、エラーメッセージをJSONで返す
-        response = service.generate_response("Unknown pattern prompt")
+        # モックプロンプトリポジトリを作成
+        mock_repo = Mock(spec=FileBasedPromptRepository)
+        mock_repo.get_persona.return_value = "You are a test agent."
 
-        # エラー時でもJSON形式で返される
-        assert "```json" in response
-        assert "SYSTEM_ERROR" in response
-        assert "No appropriate response pattern found" in response
+        prompt_injector = PromptInjectorService(mock_repo)
+        service = GeminiService(prompt_injector)
+
+        test_message = Message(
+            recipient_id="DEBATER_A",
+            sender_id="MODERATOR",
+            message_type="INVALID_TYPE",
+            payload={},
+            turn_id=1
+        )
+
+        # エラーをシミュレート
+        with patch.object(service, '_call_gemini_cli',
+                          return_value="Error: API failure"):
+            response = service.generate_response("DEBATER_A", test_message)
+
+            # フォールバック応答が返される
+            assert response.recipient_id == "MODERATOR"
+            assert response.sender_id == "DEBATER_A"
+            assert response.message_type == "RESPONSE"
+            assert "Error: API failure" in response.payload["content"]
 
 
 class TestFileBasedPromptRepository:

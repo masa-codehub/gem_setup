@@ -16,8 +16,23 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 class TestAgentOrchestrator:
     """エージェントオーケストレーターの統合テスト"""
 
-    def test_debater_statement_flow(self):
+    @patch('subprocess.run')
+    def test_debater_statement_flow(self, mock_run):
         """討論者の立論フローの統合テスト - 新アーキテクチャ対応"""
+        # Mockの設定 - 適切なJSONレスポンスを返す
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = '''```json
+{
+    "recipient_id": "MODERATOR",
+    "message_type": "SUBMIT_STATEMENT",
+    "payload": {
+        "statement": "AI brings significant benefits to society"
+    }
+}
+```'''
+        mock_run.return_value = mock_result
+
         with tempfile.TemporaryDirectory() as temp_dir:
             # 環境変数設定
             os.environ["DEBATE_DIR"] = temp_dir
@@ -56,8 +71,24 @@ class TestAgentOrchestrator:
             # 新しいGeminiServiceの実際の応答パターンに合わせる
             assert "statement" in posted_message.payload
 
-    def test_judge_judgement_flow(self):
+    @patch('subprocess.run')
+    def test_judge_judgement_flow(self, mock_run):
         """ジャッジの判定フローの統合テスト - 新アーキテクチャ対応"""
+        # Mockの設定 - ジャッジメントレスポンス
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = '''```json
+{
+    "recipient_id": "MODERATOR",
+    "message_type": "SUBMIT_JUDGEMENT",
+    "payload": {
+        "judgement": "DEBATER_A: 42/50点",
+        "reasoning": "Logical argument structure"
+    }
+}
+```'''
+        mock_run.return_value = mock_result
+
         with tempfile.TemporaryDirectory() as temp_dir:
             os.environ["DEBATE_DIR"] = temp_dir
 
@@ -118,10 +149,18 @@ class TestAgentOrchestrator:
 
             # 判定内容の確認（新しい応答フォーマットに合わせる）
             assert "judgement" in judgement_message.payload
-            assert "DEBATER_A: 42/50点" in judgement_message.payload["judgement"]
+            assert ("DEBATER_A: 42/50点" in
+                    judgement_message.payload["judgement"])
 
-    def test_error_handling(self):
+    @patch('subprocess.run')
+    def test_error_handling(self, mock_run):
         """エラーハンドリングの統合テスト - 新アーキテクチャ対応"""
+        # Mockの設定 - エラーレスポンス
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "API Error occurred"
+        mock_run.return_value = mock_result
+
         with tempfile.TemporaryDirectory() as temp_dir:
             os.environ["DEBATE_DIR"] = temp_dir
 

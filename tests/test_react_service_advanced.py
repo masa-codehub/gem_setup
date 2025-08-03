@@ -33,29 +33,27 @@ class TestReActServiceAdvanced(unittest.TestCase):
         )
         self.mock_message_broker.get_message.return_value = incoming_message
 
-        # Arrange - LLMの応答をモック
-        self.mock_llm_service.generate_response.return_value = """
-        Thought: DEBATER_Aから意見文が提出されました。次はDEBATER_Nからの意見文を要求する必要があります。
-
-        Action: post_message
-        Action Input: {
-            "recipient_id": "DEBATER_N",
-            "message_type": "PROMPT_FOR_STATEMENT",
-            "payload": {
+        # Arrange - LLMの応答をモック（新しいアーキテクチャ）
+        mock_response = Message(
+            sender_id="MODERATOR",
+            recipient_id="DEBATER_N",
+            message_type="PROMPT_FOR_STATEMENT",
+            payload={
                 "topic": "AIの是非",
                 "opponent_statement": "AIは人類に有益です"
-            }
-        }
-        """
+            },
+            turn_id=2
+        )
+        self.mock_llm_service.generate_response.return_value = mock_response
 
         # Act
         result = self.react_service.observe_think_act("MODERATOR")
 
-        # Assert - LLMが適切なプロンプトで呼び出されたか
+        # Assert - LLMが適切なパラメータで呼び出されたか
         self.mock_llm_service.generate_response.assert_called_once()
-        call_args = self.mock_llm_service.generate_response.call_args[0][0]
-        self.assertIn("DEBATER_A", call_args)
-        self.assertIn("SUBMIT_STATEMENT", call_args)
+        call_args = self.mock_llm_service.generate_response.call_args[0]
+        self.assertEqual(call_args[0], "MODERATOR")  # agent_id
+        self.assertEqual(call_args[1], incoming_message)  # context_message
 
         # Assert - 結果メッセージが適切に生成されたか
         self.assertIsInstance(result, Message)

@@ -1,70 +1,87 @@
 """
-Geminiサービスの実装
+Geminiサービスの実装（リファクタリング版）
 ILLMServiceインターフェースの具体的な実装
 """
 
 import subprocess
+import json
 from main.application.interfaces import ILLMService
+from main.infrastructure.prompt_injector_service import PromptInjectorService
+from main.domain.models import Message
 
 
 class GeminiService(ILLMService):
-    """Gemini APIを使ったLLMサービス"""
+    """Gemini APIを使ったLLMサービス（プロンプトインジェクター統合版）"""
 
-    def __init__(self, timeout: int = 90):
+    def __init__(self, prompt_injector: PromptInjectorService,
+                 timeout: int = 90):
         """
         Args:
+            prompt_injector: プロンプト構築サービス
             timeout: API呼び出しのタイムアウト時間（秒）
         """
+        self.prompt_injector = prompt_injector
         self.timeout = timeout
 
-    def generate_response(self, prompt: str, system_prompt: str = "") -> str:
-        """プロンプトに対する応答を生成する（ダミー実装）"""
+    def generate_response(self, agent_id: str, context: Message) -> Message:
+        """エージェントIDとコンテキストメッセージから応答を生成する"""
+        # 1. プロンプトインジェクターにプロンプトの構築を依頼
+        prompt = self.prompt_injector.build_prompt(agent_id, context)
 
-        # MODERATORの場合：DEBATER_Aに議論開始を促す
-        if "MODERATOR" in prompt and "PROMPT_FOR_STATEMENT" in prompt:
-            return '''```json
-{
-    "recipient_id": "DEBATER_A",
-    "message_type": "PROMPT_FOR_STATEMENT", 
-    "payload": {
-        "topic": "The impact of artificial intelligence on humanity",
-        "instructions": "Please provide your opening statement supporting the positive impact of AI on humanity. You have 300 words."
-    }
-}
-```'''
+        # 2. Gemini CLIを呼び出す（ハードコーディングされたロジックは削除）
+        response_text = self._call_gemini_cli(prompt)
 
-        # DEBATER_Aの場合：MODERATORに立論を送信
-        if "DEBATER_A" in prompt and ("PROMPT_FOR_STATEMENT" in prompt or "opening statement" in prompt):
-            return '''```json
-{
-    "recipient_id": "MODERATOR",
-    "message_type": "SUBMIT_STATEMENT",
-    "payload": {
-        "statement": "I argue that AI has tremendous positive potential for humanity. AI can solve complex problems in healthcare, help us understand climate change, and enhance human capabilities rather than replace them. The key is responsible development and deployment."
-    }
-}
-```'''
+        # 3. 応答テキストをパースしてMessageオブジェクトを返す
+        return self._parse_response(response_text, agent_id, context)
 
-        # JUDGE_Lの場合：MODERATORに判定を送信
-        if "JUDGE_L" in prompt and "REQUEST_JUDGEMENT" in prompt:
-            return '''```json
-{
-    "recipient_id": "MODERATOR",
-    "message_type": "SUBMIT_JUDGEMENT",
-    "payload": {
-        "judgement": "DEBATER_A: 42/50点, DEBATER_N: 38/50点",
-        "reason": "DEBATER_Aの論理構成が優れている"
-    }
-}
-```'''
+    def _call_gemini_cli(self, prompt: str) -> str:
+        """Gemini CLIを呼び出して応答を取得"""
+        try:
+            # gemini-cliコマンドを実行
+            result = subprocess.run(
+                ['gemini-cli', '--prompt', prompt],
+                capture_output=True,
+                text=True,
+                timeout=self.timeout
+            )
 
-        # デフォルト応答
-        return '''```json
-{
-    "recipient_id": "SYSTEM",
-    "message_type": "SYSTEM_ERROR",
-    "payload": {
-        "error": "No appropriate response pattern found"
-    }
-}
-```'''
+            if result.returncode == 0:
+                return result.stdout.strip()
+            else:
+                return f"Error: {result.stderr}"
+
+        except subprocess.TimeoutExpired:
+            return "Error: Gemini API call timed out"
+        except Exception as e:
+            return f"Error: {str(e)}"
+
+    def _parse_response(self, response_text: str, sender_id: str,
+                        original_context: Message) -> Message:
+        """応答テキストをパースしてMessageオブジェクトを作成"""
+        try:
+            # JSONレスポンスを期待
+            if '```json' in response_text:
+                json_start = response_text.find('```json') + 7
+                json_end = response_text.find('```', json_start)
+                json_text = response_text[json_start:json_end].strip()
+                data = json.loads(json_text)
+
+                return Message(
+                    recipient_id=data.get('recipient_id', 'SYSTEM'),
+                    sender_id=sender_id,
+                    message_type=data.get('message_type', 'RESPONSE'),
+                    payload=data.get('payload', {}),
+                    turn_id=original_context.turn_id + 1
+                )
+
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+        # JSONパースに失敗した場合のフォールバック
+        return Message(
+            recipient_id=original_context.sender_id,
+            sender_id=sender_id,
+            message_type="RESPONSE",
+            payload={"content": response_text},
+            turn_id=original_context.turn_id + 1
+        )

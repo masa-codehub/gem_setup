@@ -32,13 +32,15 @@ class TestReActService(unittest.TestCase):
             )
         ]
 
-        # LLMの応答をモック - 新しいフォーマットに対応
-        self.mock_llm_service.generate_response.return_value = """
-        私は司会者として、この議論を開始します。
-        
-        Action: post_message
-        Input: {"recipient_id": "DEBATER_A", "message_type": "REQUEST_STATEMENT", "payload": {"topic": "AIの倫理について"}}
-        """
+        # LLMの応答をモック - 新しいアーキテクチャでMessageオブジェクトを返す
+        mock_response = Message(
+            sender_id=agent_id,
+            recipient_id="DEBATER_A",
+            message_type="REQUEST_STATEMENT",
+            payload={"topic": "AIの倫理について"},
+            turn_id=2
+        )
+        self.mock_llm_service.generate_response.return_value = mock_response
 
         # Act
         result = self.react_service.think_and_act(agent_id, persona, history)
@@ -46,7 +48,9 @@ class TestReActService(unittest.TestCase):
         # Assert
         self.assertIsInstance(result, Message)
         self.assertEqual(result.sender_id, agent_id)
-        self.mock_llm_service.generate_response.assert_called_once()
+        # 新しいインターフェースでは(agent_id, context_message)で呼び出される
+        self.mock_llm_service.generate_response.assert_called_once_with(
+            agent_id, history[-1])
 
 
 if __name__ == '__main__':
