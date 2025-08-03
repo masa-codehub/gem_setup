@@ -1,3 +1,12 @@
 {
-  "mcpServers": {}
+  "mcpServers": {
+    "A2A_Message_Bus": {
+      "command": "/usr/local/bin/python",
+      "args": [
+        "/app/main/infrastructure/mcp_message_bus_server.py"
+      ],
+      "env": {},
+      "cwd": "/app"
+    }
+  }
 }

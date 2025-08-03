@@ -17,7 +17,9 @@ MessageType = Literal[
     "PROMPT_FOR_REBUTTAL", "SUBMIT_REBUTTAL",
     "PROMPT_FOR_CLOSING_STATEMENT", "SUBMIT_CLOSING_STATEMENT",
     "REQUEST_JUDGEMENT", "SUBMIT_JUDGEMENT",
-    "DEBATE_RESULTS", "END_DEBATE", "SYSTEM_ERROR"
+    "DEBATE_RESULTS", "END_DEBATE", "SYSTEM_ERROR",
+    # 新しいメッセージタイプ（TDD プロセスで追加）
+    "INITIATE_DEBATE", "DEBATE_BRIEFING", "REQUEST_STRATEGY", "SUBMIT_STRATEGY"
 ]
 Role = Literal["debater", "judge", "moderator", "analyst"]
 Phase = Literal[
