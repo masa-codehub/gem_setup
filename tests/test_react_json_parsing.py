@@ -1,10 +1,9 @@
 """
-JSON パース機能の単体テスト
-TDD: まず基本的な機能から確実に動作するようにテストする
+ReAct JSON Parsing テスト
 """
 import unittest
-from main.application.services.react_service import ReActService
 from unittest.mock import Mock
+from main.use_cases.services.react_service import ReActService
 
 
 class TestReActServiceJsonParsing(unittest.TestCase):

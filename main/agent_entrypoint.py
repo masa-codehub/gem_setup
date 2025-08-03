@@ -3,7 +3,7 @@ Agent Entrypoint - TDD Green Phase
 標準化されたエージェント起動スクリプト
 """
 import sys
-from main.interfaces.agent_loop import AgentLoop
+from main.interface_adapters.controllers.agent_controller import AgentLoop
 
 
 def main():

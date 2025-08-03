@@ -13,12 +13,12 @@ from unittest.mock import patch, MagicMock
 
 # 新しい機能のテスト対象をインポート（まだ修正していないので失敗するはず）
 try:
-    from main.platform.supervisor import Supervisor
+    from main.frameworks_and_drivers.drivers.supervisor import Supervisor
     SUPERVISOR_EXISTS = True
 except ImportError:
     SUPERVISOR_EXISTS = False
 
-from main.domain.models import Message
+from main.entities.models import Message
 
 
 class TestSupervisorInitialMessageTDD:

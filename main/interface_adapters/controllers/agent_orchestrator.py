@@ -3,12 +3,22 @@ Agent Orchestrator - 本格的な実装（リファクタリング版）
 """
 import time
 from typing import Optional
-from main.infrastructure.message_broker import SqliteMessageBroker
-from main.infrastructure.gemini_service import GeminiService
-from main.infrastructure.prompt_injector_service import PromptInjectorService
-from main.infrastructure.file_repository import FileBasedPromptRepository
-from main.application.services.react_service import ReActService
-from main.domain.models import Message
+
+# Long imports split for readability
+from main.frameworks_and_drivers.frameworks.message_broker import (
+    SqliteMessageBroker
+)
+from main.frameworks_and_drivers.frameworks.gemini_service import (
+    GeminiService
+)
+from main.frameworks_and_drivers.frameworks.prompt_injector_service import (
+    PromptInjectorService
+)
+from main.frameworks_and_drivers.frameworks.file_repository import (
+    FileBasedPromptRepository
+)
+from main.use_cases.services.react_service import ReActService
+from main.entities.models import Message
 
 
 class AgentOrchestrator:
@@ -18,19 +28,37 @@ class AgentOrchestrator:
 
         # 依存性の注入（新アーキテクチャ対応）
         self.message_broker = SqliteMessageBroker()
-        self.message_broker.initialize_db()
+        try:
+            with self.message_broker:
+                self.message_broker.initialize_db()
+        except Exception:
+            print("Message broker initialization failed")
 
-        # プロンプトリポジトリとインジェクターの初期化
-        self.prompt_repository = FileBasedPromptRepository()
-        self.prompt_injector = PromptInjectorService(self.prompt_repository)
+        # プロンプトリポジトリとインジェクターの初期化（依存性注入）
+        try:
+            self.prompt_repository = FileBasedPromptRepository()
+            self.prompt_injector = PromptInjectorService(
+                self.prompt_repository)
+        except Exception as e:
+            print(f"Prompt services initialization failed: {e}")
+            self.prompt_repository = None
+            self.prompt_injector = None
 
-        # LLMサービスの初期化（新しいインターフェース）
-        self.llm_service = GeminiService(self.prompt_injector)
+        # LLMサービスの初期化（依存性注入）
+        try:
+            self.llm_service = GeminiService(self.prompt_injector)
+        except Exception as e:
+            print(f"LLM service initialization failed: {e}")
+            self.llm_service = None
 
-        self.react_service = ReActService(
-            self.llm_service,
-            self.message_broker
-        )
+        try:
+            self.react_service = ReActService(
+                self.llm_service,
+                self.message_broker
+            )
+        except Exception:
+            print("ReAct service initialization failed")
+            self.react_service = None
 
     def start(self):
         """エージェントのメインループを開始する"""
@@ -40,8 +68,8 @@ class AgentOrchestrator:
             try:
                 message = self.message_broker.get_message(self.agent_id)
                 if message:
-                    print(
-                        f"[{self.agent_id}] Received message: {message.message_type}")
+                    msg_type = message.message_type
+                    print(f"[{self.agent_id}] Received message: {msg_type}")
                     result = self._handle_message(message)
                     if result == "EXIT":
                         break

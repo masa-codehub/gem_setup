@@ -14,8 +14,8 @@ class TestDebateSpecificApplicationModels:
 
     def test_debate_session_is_in_application_layer(self):
         """ディベートセッションがアプリケーション層に移動している"""
-        from main.application.models import DebateSession
-        from main.domain.models import Session, Message
+        from main.use_cases.models import DebateSession
+        from main.entities.models import Session, Message
 
         # ドメインレベルのSessionを使ってディベート専用のセッションを作成
         debate_session = DebateSession(
@@ -35,7 +35,7 @@ class TestDebateSpecificApplicationModels:
 
     def test_debate_statement_is_in_application_layer(self):
         """ディベートの発言がアプリケーション層に移動している"""
-        from main.application.models import DebateStatement
+        from main.use_cases.models import DebateStatement
 
         statement = DebateStatement(
             author_id="DEBATER_A",
@@ -52,7 +52,7 @@ class TestDebateSpecificApplicationModels:
 
     def test_judgement_score_is_in_application_layer(self):
         """判定スコアがアプリケーション層に移動している"""
-        from main.application.models import JudgementScore
+        from main.use_cases.models import JudgementScore
 
         score = JudgementScore(
             debater_a_score=35,
@@ -68,7 +68,7 @@ class TestDebateSpecificApplicationModels:
 
     def test_debate_phase_is_in_application_layer(self):
         """ディベートフェーズがアプリケーション層に移動している"""
-        from main.application.models import DebatePhase
+        from main.use_cases.models import DebatePhase
 
         phase = DebatePhase(
             phase="statement",
@@ -94,8 +94,8 @@ class TestDebateServiceIntegration:
 
     def test_debate_service_uses_generic_domain_models(self):
         """ディベートサービスが汎用ドメインモデルを使用している"""
-        from main.application.services.debate_service import DebateService
-        from main.domain.models import Message, Session
+        from main.use_cases.services.debate_service import DebateService
+        from main.entities.models import Message, Session
 
         service = DebateService()
 
@@ -118,8 +118,8 @@ class TestDebateServiceIntegration:
 
     def test_debate_service_handles_generic_message_flow(self):
         """ディベートサービスが汎用メッセージフローを処理できる"""
-        from main.application.services.debate_service import DebateService
-        from main.domain.models import Message
+        from main.use_cases.services.debate_service import DebateService
+        from main.entities.models import Message
 
         service = DebateService()
 

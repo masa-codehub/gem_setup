@@ -4,9 +4,9 @@ TDD: より複雑な機能はテストから設計する
 """
 import unittest
 from unittest.mock import Mock
-from main.application.services.react_service import ReActService
-from main.application.interfaces import ILLMService, IMessageBroker
-from main.domain.models import Message
+from main.use_cases.services.react_service import ReActService
+from main.use_cases.interfaces import ILLMService, IMessageBroker
+from main.entities.models import Message
 
 
 class TestReActServiceAdvanced(unittest.TestCase):

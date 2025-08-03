@@ -5,7 +5,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Optional
-from main.domain.models import Message, AgentID
+from main.entities.models import Message, AgentID
 
 
 class IMessageBroker(ABC):

@@ -12,9 +12,9 @@ import json
 from unittest.mock import patch, MagicMock
 
 # すべてのコンポーネントをインポート
-from main.platform.supervisor import Supervisor
-from main.domain.models import Message
-from main.infrastructure.mcp_message_bus_server import post_message, get_message
+from main.frameworks_and_drivers.drivers.supervisor import Supervisor
+from main.entities.models import Message
+from main.frameworks_and_drivers.frameworks.mcp_message_bus_server import post_message, get_message
 
 
 class TestMCPIntegrationTDD:
@@ -61,7 +61,7 @@ class TestMCPIntegrationTDD:
         # 2. MCPツール経由でメッセージを投函
         message_json = json.dumps(test_message.__dict__)
         post_result = post_message(message_json)
-        assert "Success" in post_result
+        assert "Message posted successfully" in post_result
 
         # 3. MCPツール経由でメッセージを取得
         result_json = get_message("MODERATOR")
@@ -89,7 +89,7 @@ class TestMCPIntegrationTDD:
 
         strategy_request_json = json.dumps(strategy_request.__dict__)
         post_result = post_message(strategy_request_json)
-        assert "Success" in post_result
+        assert "Message posted successfully" in post_result
 
         # 2. DEBATER_Aがメッセージを受信
         received_json = get_message("DEBATER_A")
@@ -112,7 +112,7 @@ class TestMCPIntegrationTDD:
 
         strategy_response_json = json.dumps(strategy_response.__dict__)
         post_result = post_message(strategy_response_json)
-        assert "Success" in post_result
+        assert "Message posted successfully" in post_result
 
         # 4. MODERATORがメッセージを受信
         moderator_received_json = get_message("MODERATOR")
@@ -143,7 +143,7 @@ class TestMCPIntegrationTDD:
 
             message_json = json.dumps(test_message.__dict__)
             post_result = post_message(message_json)
-            assert "Success" in post_result
+            assert "Message posted successfully for" in post_result
 
             # MCPツールで取得
             result_json = get_message("MODERATOR")
@@ -159,7 +159,7 @@ class TestMCPIntegrationTDD:
         # 1. 不正なJSONでのメッセージ投函
         invalid_json = "{'malformed': 'json'"
         result = post_message(invalid_json)
-        assert "Error" in result
+        assert "Error posting message" in result
 
         # 2. 存在しないエージェントIDでのメッセージ取得
         result = get_message("NONEXISTENT_AGENT")

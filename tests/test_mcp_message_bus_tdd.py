@@ -12,12 +12,12 @@ import json
 
 # テスト対象をインポート（まだ存在しないのでテストは失敗するはず）
 try:
-    from main.infrastructure.mcp_message_bus_server import post_message, get_message
+    from main.frameworks_and_drivers.frameworks.mcp_message_bus_server import post_message, get_message
     MCP_SERVER_EXISTS = True
 except ImportError:
     MCP_SERVER_EXISTS = False
 
-from main.domain.models import Message
+from main.entities.models import Message
 
 
 class TestMCPMessageBusServerTDD:
@@ -53,7 +53,7 @@ class TestMCPMessageBusServerTDD:
         result = post_message(message_json)
 
         # 成功メッセージが返されることを確認
-        assert "Success" in result
+        assert "Message posted successfully for" in result
         assert "MODERATOR" in result
 
     @pytest.mark.skipif(not MCP_SERVER_EXISTS, reason="MCP server not implemented yet")
