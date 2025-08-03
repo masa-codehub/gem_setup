@@ -6,7 +6,7 @@ import pytest
 import os
 import tempfile
 import yaml
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 
 
 @pytest.fixture
@@ -17,6 +17,54 @@ def temp_run_dir():
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         yield tmpdir
+
+
+@pytest.fixture
+def mock_prompt_injector():
+    """
+    ペルソナファイルを読まずに、固定のプロンプトを返す
+    PromptInjectorServiceのモック。
+
+    TDD原則：外部依存を排除し、テストの意図を明確にする
+    """
+    # MagicMockを使って、メソッドを持つ偽のオブジェクトを作成
+    mock_injector = MagicMock()
+
+    # build_promptメソッドが呼び出されたときの戻り値を定義
+    mock_injector.build_prompt.return_value = (
+        "This is a test prompt for any agent."
+    )
+
+    return mock_injector
+
+
+@pytest.fixture
+def mock_gemini_service(mock_prompt_injector):
+    """
+    実際にCLIを呼び出さずに、固定の応答を返すGeminiServiceのモック。
+
+    TDD原則：高速で予測可能なテストを実現するため、外部サービスをモック化
+    """
+    from main.frameworks_and_drivers.frameworks.gemini_service import (
+        GeminiService
+    )
+
+    # ここでは、実際のGeminiServiceのコンストラクタにモックを渡す
+    # ただし、generate_structured_responseメソッド自体もモック化する
+    mock_service = MagicMock(spec=GeminiService)
+
+    # LLMからの応答をシミュレート
+    from main.entities.models import Message
+    dummy_response = Message(
+        sender_id="AI_ASSISTANT",
+        recipient_id="TEST_RECIPIENT",
+        message_type="MOCK_RESPONSE",
+        payload={"content": "This is a mock LLM response for testing."},
+        turn_id=2
+    )
+    mock_service.generate_structured_response.return_value = dummy_response
+
+    return mock_service
 
 
 @pytest.fixture

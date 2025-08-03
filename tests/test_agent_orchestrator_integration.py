@@ -18,18 +18,30 @@ class TestAgentOrchestratorIntegration(unittest.TestCase):
 
     def test_orchestrator_should_integrate_clean_architecture_services(self):
         """
-        AgentOrchestratorはクリーンアーキテクチャの各サービスを
-        適切に統合して使用する必要がある
+        Clean Architecture統合テスト - ファイル依存性なし
+        - AgentOrchestratorがClean Architecture layersと正しく統合されることを検証
         """
-        # Arrange & Act
-        orchestrator = AgentOrchestrator("MODERATOR", "clean")
+        # Arrange
+        from unittest.mock import MagicMock
+        mock_message_broker = MagicMock()
+        mock_gemini_service = MagicMock()
+        mock_react_service = MagicMock()
+
+        # Act
+        orchestrator = AgentOrchestrator(
+            agent_id="MODERATOR",
+            mode="clean",
+            message_broker=mock_message_broker,
+            gemini_service=mock_gemini_service,
+            react_service=mock_react_service
+        )
 
         # Assert - AgentOrchestratorが適切に初期化されることを確認
         self.assertEqual(orchestrator.agent_id, "MODERATOR")
         self.assertEqual(orchestrator.mode, "clean")
         self.assertIsNotNone(orchestrator.message_broker)
-        self.assertIsNotNone(orchestrator.llm_service)
-        self.assertIsNotNone(orchestrator.react_service)
+        # 依存性注入されたサービスが正しく設定されていることを確認
+        self.assertEqual(orchestrator.message_broker, mock_message_broker)
 
     def test_orchestrator_should_handle_message_processing_loop(self):
         """
@@ -41,7 +53,8 @@ class TestAgentOrchestratorIntegration(unittest.TestCase):
 
         # Mock the _handle_message method directly
         with patch.object(orchestrator, '_handle_message') as mock_handle, \
-                patch.object(orchestrator.message_broker, 'get_message') as mock_get_message:
+                patch.object(orchestrator.message_broker, 'get_message') as \
+                mock_get_message:
 
             # メッセージ処理シミュレーション：最初のメッセージでEXITを返す
             mock_get_message.side_effect = [

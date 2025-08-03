@@ -7,41 +7,68 @@ import time
 from main.entities.models import Message
 from typing import Optional
 
+
 class AgentController:
     """
     エージェントコントローラー - 自律的な思考→行動サイクル
     旧 AgentLoop からリファクタリング
     """
 
-    def __init__(self, agent_id: str):
+    def __init__(self, agent_id: str, message_bus=None, gemini_service=None):
         """
         エージェントコントローラーを初期化
 
         Args:
             agent_id: エージェントID
+            message_bus: メッセージバス（テスト時は外部から注入）
+            gemini_service: LLMサービス（テスト時は外部から注入）
         """
         self.agent_id = agent_id
-        
-        # 依存性注入: アプリケーションの実行に必要なサービスを初期化
-        # このtry-exceptブロックは、テスト時に依存関係をモックするためのものです
-        try:
-            from main.frameworks_and_drivers.frameworks.message_broker import SqliteMessageBroker
-            from main.frameworks_and_drivers.frameworks.prompt_injector_service import PromptInjectorService
-            from main.frameworks_and_drivers.frameworks.gemini_service import GeminiService
 
-            message_db_path = os.environ.get("MESSAGE_DB_PATH")
-            if message_db_path:
-                self.message_bus = SqliteMessageBroker(message_db_path)
-            else:
-                self.message_bus = SqliteMessageBroker()
-            
-            self.prompt_injector = PromptInjectorService()
-            self.gemini_service = GeminiService(prompt_injector=self.prompt_injector)
+        # TDD対応: 依存性注入をサポート
+        if message_bus is not None:
+            self.message_bus = message_bus
+        else:
+            # 本番環境: デフォルトの依存関係を初期化
+            self._initialize_production_dependencies()
+
+        if gemini_service is not None:
+            self.gemini_service = gemini_service
+        elif not hasattr(self, 'gemini_service'):
+            # gemini_serviceが設定されていない場合のみ初期化
+            self._initialize_production_dependencies()
+
+    def _initialize_production_dependencies(self):
+        """本番環境用の依存関係を初期化"""
+        try:
+            from main.frameworks_and_drivers.frameworks.message_broker import (
+                SqliteMessageBroker
+            )
+            from main.frameworks_and_drivers.frameworks.\
+                prompt_injector_service import PromptInjectorService
+            from main.frameworks_and_drivers.frameworks.gemini_service import (
+                GeminiService
+            )
+
+            if not hasattr(self, 'message_bus') or self.message_bus is None:
+                message_db_path = os.environ.get("MESSAGE_DB_PATH")
+                if message_db_path:
+                    self.message_bus = SqliteMessageBroker(message_db_path)
+                else:
+                    self.message_bus = SqliteMessageBroker()
+
+            if (not hasattr(self, 'gemini_service') or
+                    self.gemini_service is None):
+                prompt_injector = PromptInjectorService()
+                self.gemini_service = GeminiService(
+                    prompt_injector=prompt_injector
+                )
         except ImportError:
             # テスト環境用のフォールバック
-            self.message_bus = None
-            self.prompt_injector = None
-            self.gemini_service = None
+            if not hasattr(self, 'message_bus'):
+                self.message_bus = None
+            if not hasattr(self, 'gemini_service'):
+                self.gemini_service = None
 
     def run(self) -> None:
         """エージェントのメインループを開始"""
@@ -56,9 +83,9 @@ class AgentController:
                     message = self.message_bus.get_message(self.agent_id)
                     if message:
                         self._process_message(message)
-                        time.sleep(1) # メッセージ処理後、少し待機
+                        time.sleep(1)  # メッセージ処理後、少し待機
                     else:
-                        time.sleep(2) # メッセージがない場合は少し長く待機
+                        time.sleep(2)  # メッセージがない場合は少し長く待機
                 else:
                     # 依存関係が注入されていない場合はループを抜ける
                     break
@@ -81,10 +108,11 @@ class AgentController:
                     agent_id=self.agent_id,
                     context=message
                 )
-                
+
                 # LLMの応答から次のメッセージを作成
                 if llm_response:
-                    response_message = self._create_response_message(message, llm_response)
+                    response_message = self._create_response_message(
+                        message, llm_response)
             else:
                 # フォールバック: シナリオテスト用の簡易レスポンス生成
                 response_message = self._generate_scenario_response(message)
@@ -95,7 +123,7 @@ class AgentController:
                 print(f"[{self.agent_id}] Sent response: "
                       f"{response_message.message_type} to "
                       f"{response_message.recipient_id}")
-                      
+
         except Exception as e:
             print(f"[{self.agent_id}] Error processing message: {e}")
 
@@ -117,7 +145,8 @@ class AgentController:
                     sender_id="MODERATOR",
                     recipient_id="DEBATER_A",
                     message_type="REQUEST_STATEMENT",
-                    payload={"topic": message.payload.get("topic", "Unknown topic")},
+                    payload={"topic": message.payload.get(
+                        "topic", "Unknown topic")},
                     turn_id=message.turn_id + 1
                 )
             elif message.message_type == "SUBMIT_STATEMENT":
@@ -143,6 +172,7 @@ class AgentController:
                 )
 
         return None
+
 
 # 後方互換性のためのエイリアス
 AgentLoop = AgentController
