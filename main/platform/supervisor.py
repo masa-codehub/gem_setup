@@ -129,13 +129,28 @@ class Supervisor:
     # ===== Initial Message Posting Methods =====
 
     def post_initial_message(self, topic: str) -> None:
-        """基本的な初期メッセージを投函する"""
-        message = self._create_message(
+        """ディベート開始の初期メッセージを投函する"""
+        if self.message_bus is None:
+            raise ValueError("Message bus must be initialized.")
+
+        # Moderatorにディベートのルールとトピックを説明させるためのメッセージ
+        rules_text = ("This debate will proceed in turns. First, you will "
+                      "explain the rules and topic. Then, you will ask "
+                      "Debater A for their strategy.")
+
+        initial_message = Message(
+            sender_id="SYSTEM",
             recipient_id="MODERATOR",
-            message_type="PROMPT_FOR_STATEMENT",
-            payload={"topic": topic}
+            message_type="INITIATE_DEBATE",  # 新しいメッセージタイプ
+            payload={
+                "topic": topic,
+                "rules": rules_text
+            },
+            turn_id=1
         )
-        self._post_message(message)
+
+        self.message_bus.post_message(initial_message)
+        print("✅ Initial INITIATE_DEBATE message posted to MODERATOR.")
 
     def post_initial_message_with_metadata(self, topic: str) -> None:
         """メタデータを含む初期メッセージを投函する"""

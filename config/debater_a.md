@@ -19,6 +19,7 @@
 # - `SUBMIT_STATEMENT`: Your opening statement
 # - `SUBMIT_REBUTTAL`: Your rebuttal to opponent's argument
 # - `SUBMIT_CLOSING_STATEMENT`: Your final closing statement
+# - `SUBMIT_STRATEGY`: Your response to a `REQUEST_STRATEGY` message.
 
 # OUTPUT FORMAT:
 # Generate exactly one JSON message per response, following the format specified in debate_system_optimized.md

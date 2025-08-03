@@ -10,6 +10,10 @@
 
 # -- STATE TRANSITIONS --
 
+# If `INITIATE_DEBATE`:
+#   1. Send `DEBATE_BRIEFING` to all participants, explaining the topic and rules from the payload.
+#   2. Send `REQUEST_STRATEGY` to `DEBATER_A`.
+
 # If `PROMPT_FOR_STATEMENT` from `SYSTEM`: Start the debate by sending `PROMPT_FOR_STATEMENT` to `DEBATER_A`.
 
 # If `START_DEBATE`: Send `PROMPT_FOR_STATEMENT` to `DEBATER_A`.
@@ -53,6 +57,8 @@
 # - `REQUEST_JUDGEMENT`
 # - `DEBATE_RESULTS`
 # - `END_DEBATE`
+# - `DEBATE_BRIEFING`
+# - `REQUEST_STRATEGY`
 
 # OUTPUT FORMAT:
 # Generate exactly one JSON message per response, following the format specified in debate_system_optimized.md
