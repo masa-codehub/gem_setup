@@ -35,7 +35,9 @@ class AgentController:
                 self.message_broker = SqliteMessageBroker()
             self.message_bus = self.message_broker  # テスト互換性のためのエイリアス
             self.prompt_injector = PromptInjectorService()
-            self.gemini_service = GeminiService()
+            self.gemini_service = GeminiService(
+                prompt_injector=self.prompt_injector
+            )
         except ImportError:
             # Fallback for testing
             self.message_broker = None
@@ -72,12 +74,29 @@ class AgentController:
                 break
 
     def _process_message(self, message: Message) -> None:
-        """メッセージを処理する（シナリオテスト対応実装）"""
+        """メッセージを処理する（TDD: テストの期待に合わせた実装）"""
         print(f"[{self.agent_id}] Processing message: {message.message_type}")
 
-        # シナリオテスト用の簡易レスポンス生成
         try:
-            response_message = self._generate_scenario_response(message)
+            # TDD: テストが期待するPromptInjectorとLLMサービスの使用
+            if self.prompt_injector and self.gemini_service:
+                # LLMレスポンスを生成（GeminiServiceが内部でプロンプトを構築）
+                llm_response = self.gemini_service.generate_response(
+                    agent_id=self.agent_id,
+                    context=message
+                )
+
+                print(f"[{self.agent_id}] Generated LLM response: "
+                      f"{llm_response}")
+
+                # レスポンスから適切なメッセージを生成
+                response_message = self._create_response_message(
+                    message, llm_response
+                )
+            else:
+                # フォールバック: シナリオテスト用の簡易レスポンス生成
+                response_message = self._generate_scenario_response(message)
+
             if response_message and self.message_bus:
                 self.message_bus.post_message(response_message)
                 print(f"[{self.agent_id}] Sent response: "
@@ -85,6 +104,21 @@ class AgentController:
                       f"{response_message.recipient_id}")
         except Exception as e:
             print(f"[{self.agent_id}] Error processing message: {e}")
+
+    def _create_response_message(
+        self, original_message: Message, llm_response: str
+    ) -> Message:
+        """LLMレスポンスから適切なメッセージを作成"""
+        from main.entities.models import Message
+
+        # 簡易的な実装: LLMレスポンスをペイロードに含める
+        return Message(
+            sender_id=self.agent_id,
+            recipient_id=original_message.sender_id,  # 送信者に返信
+            message_type="RESPONSE",
+            payload={"response": llm_response},
+            turn_id=original_message.turn_id + 1
+        )
 
     def _generate_scenario_response(self, message: Message) -> Message:
         """シナリオテスト用の応答メッセージを生成"""

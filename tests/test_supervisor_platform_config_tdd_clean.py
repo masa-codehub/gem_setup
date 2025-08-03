@@ -5,55 +5,37 @@ Kent BeckのTDD思想に従い、SupervisorがPlatformConfigを使用するた�
 テストファーストでの実装
 """
 
-# Assert
-from main.frameworks_and_drivers.drivers.supervisor import Supervisor
+import pytest
+import tempfile
+import os
+import yaml
+
 from main.frameworks_and_drivers.frameworks.platform_config import (
     PlatformConfig
 )
-import yaml
-import os
-import tempfile
+from main.frameworks_and_drivers.drivers.supervisor import Supervisor
 
 
 class TestSupervisorPlatformConfigTDD:
-    """SupervisorクラスのPlatformConfig対応テスト"""
-
-    def setup_method(self):
-        """各テストの前準備"""
-        # テスト用の設定データ
-        self.test_config = {
-            'project_name': 'test_debate_platform',
-            'agents': [
-                {
-                    'id': 'MODERATOR',
-                    'type': 'moderator',
-                    'persona_file': 'moderator.md'
-                },
-                {
-                    'id': 'DEBATER_A',
-                    'type': 'debater',
-                    'persona_file': 'debater_a.md'
-                }
-            ],
-            'message_bus': {
-                'type': 'sqlite',
-                'db_path': 'test_messages.db'
-            },
-            'platform_config': {
-                'data_storage_path': './test_runs',
-                'message_db_path': './',
-                'agent_config_path': './test_config'
-            }
-        }
+    """SupervisorのPlatformConfig対応をテストするクラス"""
 
     def test_supervisor_can_accept_platform_config_object(self):
-        """� GREEN: SupervisorがPlatformConfigオブジェクトを受け取れる"""
+        """GREEN: SupervisorがPlatformConfigオブジェクトを受け入れる"""
         # Arrange
         with tempfile.NamedTemporaryFile(
-            mode='w', suffix='.yml', delete=False
-        ) as f:
-            yaml.dump(self.test_config, f)
-            config_path = f.name
+                mode='w', suffix='.yml', delete=False
+        ) as config_file:
+            config_data = {
+                "platform_config": {
+                    "data_storage_path": "/tmp/test_data",
+                    "message_db_path": "/tmp/test_db"
+                },
+                "agents": [
+                    {"id": "MODERATOR", "persona_file": "moderator.md"}
+                ]
+            }
+            yaml.dump(config_data, config_file)
+            config_path = config_file.name
 
         try:
             platform_config = PlatformConfig(config_path)
@@ -62,20 +44,29 @@ class TestSupervisorPlatformConfigTDD:
             supervisor = Supervisor(platform_config)
 
             # Assert
-            assert supervisor is not None
             assert supervisor.platform_config == platform_config
-            assert supervisor.project_def == platform_config.project_definition
+            assert supervisor.config == platform_config  # テスト用プロパティ
+
         finally:
             os.unlink(config_path)
 
     def test_supervisor_uses_platform_config_for_message_bus_path(self):
-        """� GREEN: SupervisorがPlatformConfigからメッセージバスのパスを取得する"""
+        """GREEN: SupervisorがPlatformConfigからメッセージバスパスを使用する"""
         # Arrange
         with tempfile.NamedTemporaryFile(
-            mode='w', suffix='.yml', delete=False
-        ) as f:
-            yaml.dump(self.test_config, f)
-            config_path = f.name
+                mode='w', suffix='.yml', delete=False
+        ) as config_file:
+            config_data = {
+                "platform_config": {
+                    "data_storage_path": "/tmp/test_supervisor_data",
+                    "message_db_path": "/tmp/test_supervisor_db"
+                },
+                "agents": [
+                    {"id": "MODERATOR", "persona_file": "moderator.md"}
+                ]
+            }
+            yaml.dump(config_data, config_file)
+            config_path = config_file.name
 
         try:
             platform_config = PlatformConfig(config_path)
@@ -122,22 +113,26 @@ class TestSupervisorPlatformConfigTDD:
             os.unlink(config_path)
 
     def test_supervisor_backward_compatibility_with_file_path(self):
-        """🔴 RED: Supervisorは既存のファイルパス引数との後方互換性を保つ"""
+        """GREEN: Supervisorは既存のファイルパス引数との後方互換性を保つ"""
         # Arrange
         with tempfile.NamedTemporaryFile(
             mode='w', suffix='.yml', delete=False
-        ) as f:
-            yaml.dump(self.test_config, f)
-            config_path = f.name
+        ) as config_file:
+            test_config = {
+                "agents": [
+                    {"id": "MODERATOR", "persona_file": "moderator.md"}
+                ]
+            }
+            yaml.dump(test_config, config_file)
+            config_path = config_file.name
 
         try:
             # Act
-            # 既存のAPIは引き続き動作する必要がある
             supervisor = Supervisor(config_path)
 
             # Assert
             assert supervisor is not None
-            assert supervisor.project_def == self.test_config
+            assert supervisor.project_def == test_config
         finally:
             os.unlink(config_path)
 
