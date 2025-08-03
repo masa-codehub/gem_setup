@@ -72,10 +72,26 @@ class AgentController:
                 break
 
     def _process_message(self, message: Message) -> None:
-        """メッセージを処理する（シナリオテスト対応実装）"""
+        """メッセージを処理する（TDD対応実装）"""
         print(f"[{self.agent_id}] Processing message: {message.message_type}")
 
-        # シナリオテスト用の簡易レスポンス生成
+        # TDDテスト用: プロンプトインジェクターとLLMサービスを使用
+        if self.prompt_injector and self.gemini_service:
+            try:
+                # プロンプトインジェクターでプロンプトを構築
+                prompt = self.prompt_injector.build_prompt(
+                    self.agent_id, message
+                )
+
+                # LLMサービスで応答を生成
+                response_text = self.gemini_service.generate_response(prompt)
+
+                print(f"[{self.agent_id}] Generated response: {response_text}")
+                return
+            except Exception as e:
+                print(f"[{self.agent_id}] Error with LLM processing: {e}")
+
+        # フォールバック: シナリオテスト用の簡易レスポンス生成
         try:
             response_message = self._generate_scenario_response(message)
             if response_message and self.message_bus:

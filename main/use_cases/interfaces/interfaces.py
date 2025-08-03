@@ -27,7 +27,18 @@ class ILLMService(ABC):
 
     @abstractmethod
     def generate_response(self, prompt: str) -> str:
-        """プロンプトに対する応答を生成する"""
+        """プロンプトに対する応答を生成する（レガシーメソッド）"""
+        pass
+
+    @abstractmethod
+    def generate_structured_response(
+        self,
+        agent_id: str,
+        context: Message,
+        generation_config: Optional[dict] = None,
+        model: Optional[str] = None
+    ) -> Optional[Message]:
+        """構造化されたMessage応答を生成する（新しいメソッド）"""
         pass
 
 

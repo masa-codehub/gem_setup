@@ -76,6 +76,24 @@ class MockLLMService(ILLMService):
         self.last_prompt = prompt
         return self.mock_response
 
+    def generate_structured_response(
+        self,
+        agent_id: str,
+        context,
+        generation_config=None,
+        model=None
+    ):
+        """新しい抽象メソッドの実装（テスト用）"""
+        # テスト用のモックMessageオブジェクトを返す
+        from main.entities.models import Message
+        return Message(
+            recipient_id="TEST_RECIPIENT",
+            sender_id=agent_id,
+            message_type="TEST_RESPONSE",
+            payload={"content": self.mock_response},
+            turn_id=context.turn_id + 1 if hasattr(context, 'turn_id') else 1
+        )
+
 
 class TestMockImplementations:
     """モック実装のテスト"""
