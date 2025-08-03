@@ -60,3 +60,15 @@ platform:
     statistics_collection: true
     config_validation: true
     retry_mechanism: true
+
+# プラットフォーム設定詳細（新規追加）
+platform_config:
+  # データとログのベースとなるディレクトリ
+  data_storage_path: "./debate_runs"
+  
+  # メッセージ履歴を保存するデータベースのパス
+  # data_storage_pathからの相対パスとして解釈される
+  message_db_path: "debate_messages.db"
+
+  # 各エージェントのペルソナなどを定義した設定ファイルの場所
+  agent_config_path: "./config"

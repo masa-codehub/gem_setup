@@ -8,9 +8,12 @@ import subprocess
 import os
 import time
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from main.frameworks_and_drivers.frameworks.message_broker import (
     SqliteMessageBroker
+)
+from main.frameworks_and_drivers.frameworks.platform_config import (
+    PlatformConfig
 )
 from main.entities.models import Message
 
@@ -23,14 +26,27 @@ class Supervisor:
     テストファーストで開発されたClean Architectureの実装
     """
 
-    def __init__(self, project_file: str):
+    def __init__(self, config: Union[str, PlatformConfig]):
         """
-        プロジェクト定義ファイルからスーパーバイザーを初期化
+        プロジェクト定義またはPlatformConfigからスーパーバイザーを初期化
 
         Args:
-            project_file: YAMLプロジェクト定義ファイルのパス
+            config: YAMLプロジェクト定義ファイルのパス、またはPlatformConfigオブジェクト
         """
-        self._load_project_definition(project_file)
+        if isinstance(config, str):
+            # 後方互換性: ファイルパスを受け取る場合
+            self._load_project_definition(config)
+            self.platform_config = None
+        elif isinstance(config, PlatformConfig):
+            # 新しい方式: PlatformConfigオブジェクトを受け取る場合
+            self.project_def = config.project_definition
+            self.platform_config = config
+        else:
+            raise TypeError(
+                "config must be either a file path (str) or "
+                "PlatformConfig object"
+            )
+
         self._initialize_state()
 
     def _load_project_definition(self, project_file: str) -> None:
@@ -49,8 +65,13 @@ class Supervisor:
 
     def initialize_message_bus(self) -> None:
         """A2Aメッセージバスを初期化する"""
-        message_bus_config = self.project_def.get('message_bus', {})
-        db_path = message_bus_config.get('db_path', 'messages.db')
+        if self.platform_config:
+            # PlatformConfigオブジェクトからパスを取得
+            db_path = self.platform_config.message_db_path
+        else:
+            # 従来の方式（後方互換性）
+            message_bus_config = self.project_def.get('message_bus', {})
+            db_path = message_bus_config.get('db_path', 'messages.db')
 
         self.message_bus = SqliteMessageBroker(db_path)
         self.message_bus.initialize_db()
