@@ -1,17 +1,25 @@
 """
-Platform Supervisor - TDD Green Phase
-Kent BeckのTDD思想に従い、テストを通すための最小限の実装
+Platform Supervisor - TDD Refactor Phase
+Kent BeckのTDD思想に従い、Green Phaseの後にコードを改善
+Clean Code原則を適用し、保守性と可読性を向上
 """
 import yaml
 import subprocess
 import os
-from typing import List, Optional
+import time
+from datetime import datetime
+from typing import List, Optional, Dict, Any
 from main.infrastructure.message_broker import SqliteMessageBroker
 from main.domain.models import Message
 
 
 class Supervisor:
-    """プラットフォームスーパーバイザー - エージェントプロセスのライフサイクル管理"""
+    """
+    プラットフォームスーパーバイザー - エージェントプロセスのライフサイクル管理
+
+    run_debate.shと同等の機能を提供し、Kent BeckのTDD思想に基づいて
+    テストファーストで開発されたClean Architectureの実装
+    """
 
     def __init__(self, project_file: str):
         """
@@ -20,20 +28,51 @@ class Supervisor:
         Args:
             project_file: YAMLプロジェクト定義ファイルのパス
         """
+        self._load_project_definition(project_file)
+        self._initialize_state()
+
+    def _load_project_definition(self, project_file: str) -> None:
+        """プロジェクト定義ファイルを読み込む"""
         with open(project_file, "r") as f:
             self.project_def = yaml.safe_load(f)
 
+    def _initialize_state(self) -> None:
+        """内部状態を初期化する"""
         self.agent_processes: List[subprocess.Popen] = []
         self.message_bus: Optional[SqliteMessageBroker] = None
+        self.session_stats: Dict[str, Any] = {}
+        self.config_validated: bool = False
+
+    # ===== Core Message Bus Operations =====
 
     def initialize_message_bus(self) -> None:
         """A2Aメッセージバスを初期化する"""
-        # プロジェクト定義からDB設定を取得
         message_bus_config = self.project_def.get('message_bus', {})
         db_path = message_bus_config.get('db_path', 'messages.db')
 
         self.message_bus = SqliteMessageBroker(db_path)
         self.message_bus.initialize_db()
+
+    def _create_message(
+        self, recipient_id: str, message_type: str,
+        payload: Dict[str, Any], turn_id: int = 1
+    ) -> Message:
+        """メッセージオブジェクトを作成する（共通処理）"""
+        return Message(
+            sender_id="SYSTEM",
+            recipient_id=recipient_id,
+            message_type=message_type,
+            payload=payload,
+            turn_id=turn_id
+        )
+
+    def _post_message(self, message: Message) -> None:
+        """メッセージをバスに投函する（共通処理）"""
+        if self.message_bus is None:
+            raise ValueError("Message bus not initialized")
+        self.message_bus.post_message(message)
+
+    # ===== Agent Lifecycle Management =====
 
     def start(self) -> None:
         """プロジェクト定義に基づき、全エージェントを起動する"""
@@ -67,6 +106,10 @@ class Supervisor:
                 return True
         return False
 
+    def are_agents_ready(self) -> bool:
+        """エージェントの準備状況を確認する"""
+        return len(self.agent_processes) > 0
+
     def monitor(self) -> None:
         """エージェントプロセスを監視する（簡易実装）"""
         # 実際の監視ロジックは後で実装
@@ -83,18 +126,107 @@ class Supervisor:
         # プロセスリストをクリア
         self.agent_processes.clear()
 
-    def post_initial_message(self, topic: str) -> None:
-        """初期メッセージを投函する"""
-        if self.message_bus is None:
-            raise ValueError("Message bus not initialized")
+    # ===== Initial Message Posting Methods =====
 
-        # MODERATORに討論開始メッセージを送信
-        initial_message = Message(
-            sender_id="SYSTEM",
+    def post_initial_message(self, topic: str) -> None:
+        """基本的な初期メッセージを投函する"""
+        message = self._create_message(
             recipient_id="MODERATOR",
             message_type="PROMPT_FOR_STATEMENT",
-            payload={"topic": topic},
-            turn_id=1
+            payload={"topic": topic}
         )
+        self._post_message(message)
 
-        self.message_bus.post_message(initial_message)
+    def post_initial_message_with_metadata(self, topic: str) -> None:
+        """メタデータを含む初期メッセージを投函する"""
+        payload = {
+            "topic": topic,
+            "metadata": {"platform_version": "TDD-v1.0"},
+            "session_id": f"session_{int(time.time())}",
+            "timestamp": datetime.now().isoformat()
+        }
+        message = self._create_message(
+            recipient_id="MODERATOR",
+            message_type="PROMPT_FOR_STATEMENT",
+            payload=payload
+        )
+        self._post_message(message)
+
+    def post_initial_message_with_validation(self, topic: str) -> None:
+        """エージェント準備確認付きの初期メッセージ投函"""
+        if not self.are_agents_ready():
+            raise RuntimeError("Agents not ready")
+        self.post_initial_message(topic)
+
+    def post_initial_messages_by_agent_type(self, topic: str) -> None:
+        """エージェントタイプ別の初期メッセージ投函"""
+        # MODERATORには司会開始メッセージ
+        moderator_message = self._create_message(
+            recipient_id="MODERATOR",
+            message_type="PROMPT_FOR_STATEMENT",
+            payload={"topic": topic, "role": "moderator"}
+        )
+        self._post_message(moderator_message)
+
+        # JUDGEには審査準備メッセージ
+        for agent in self.project_def['agents']:
+            if agent['type'] == 'judge':
+                judge_message = self._create_message(
+                    recipient_id=agent['id'],
+                    message_type="PREPARE_FOR_JUDGMENT",
+                    payload={"topic": topic, "role": "judge"}
+                )
+                self._post_message(judge_message)
+
+    def post_initial_message_with_session(
+        self, topic: str, session_config: Dict[str, Any]
+    ) -> None:
+        """セッション設定付きの初期メッセージ投函"""
+        payload = {"topic": topic, "session_config": session_config}
+        message = self._create_message(
+            recipient_id="MODERATOR",
+            message_type="PROMPT_FOR_STATEMENT",
+            payload=payload
+        )
+        self._post_message(message)
+
+    def post_initial_message_with_retry(
+        self, topic: str, max_retries: int = 3
+    ) -> None:
+        """リトライ機能付きの初期メッセージ投函"""
+        for attempt in range(max_retries):
+            try:
+                self.post_initial_message(topic)
+                return
+            except Exception:
+                if attempt == max_retries - 1:
+                    raise
+                time.sleep(1)  # 1秒待機してリトライ
+
+    def post_initial_message_with_stats(self, topic: str) -> None:
+        """統計機能付きの初期メッセージ投函"""
+        start_time = datetime.now().isoformat()
+        self.post_initial_message(topic)
+
+        # 統計情報を記録
+        self.session_stats = {
+            'initial_messages_sent': 1,
+            'session_start_time': start_time
+        }
+
+    def post_initial_message_with_config_validation(self, topic: str) -> None:
+        """設定検証付きの初期メッセージ投函"""
+        self._validate_project_config()
+        self.config_validated = True
+        self.post_initial_message(topic)
+
+    # ===== Utility Methods =====
+
+    def _validate_project_config(self) -> None:
+        """プロジェクト設定の妥当性を検証する"""
+        if len(self.project_def.get('agents', [])) == 0:
+            raise ValueError("No agents defined")
+
+    def get_initialization_stats(self) -> Dict[str, Any]:
+        """初期化統計情報を取得"""
+        return self.session_stats

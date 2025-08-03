@@ -1,0 +1,62 @@
+# Enhanced Debate Platform Project Definition
+# Kent BeckのTDD思想で開発された高度なディベートプラットフォーム用設定
+
+project_name: "enhanced_debate_platform"
+description: "Advanced AI debate system with enhanced supervisor capabilities"
+
+# エージェント定義（拡張版）
+agents:
+  - id: "MODERATOR"
+    type: "moderator"
+    description: "Enhanced AI debate moderator with TDD-based architecture"
+  
+  - id: "DEBATER_A"
+    type: "debater"
+    description: "Affirmative side debater with advanced reasoning"
+  
+  - id: "DEBATER_N"
+    type: "debater"
+    description: "Negative side debater with critical analysis"
+  
+  - id: "JUDGE_L"
+    type: "judge"
+    description: "Logic and reasoning evaluation judge"
+  
+  - id: "JUDGE_E"
+    type: "judge"
+    description: "Evidence and fact-checking judge"
+  
+  - id: "JUDGE_R"
+    type: "judge"
+    description: "Rhetoric and presentation evaluation judge"
+  
+  - id: "ANALYST"
+    type: "analyst"
+    description: "Advanced debate performance and strategy analyst"
+
+# A2Aメッセージバス設定（拡張版）
+message_bus:
+  type: "sqlite"
+  db_path: "enhanced_debate_messages.db"
+  
+# 初期タスク設定（拡張版）
+initial_task:
+  type: "debate"
+  topic: "The transformative potential of AI in reshaping human society"
+  metadata:
+    difficulty: "expert"
+    expected_duration: 900
+    format: "structured_academic"
+    categories: ["technology", "ethics", "society"]
+  
+# プラットフォーム設定（拡張版）
+platform:
+  timeout: 900  # 15分
+  agent_check_interval: 10
+  auto_restart: true
+  enhanced_features:
+    metadata_tracking: true
+    session_management: true
+    statistics_collection: true
+    config_validation: true
+    retry_mechanism: true
