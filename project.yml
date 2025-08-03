@@ -1,0 +1,40 @@
+# シナリオテスト用のプロジェクト定義
+# Kent BeckのTDD思想で開発された2エージェント構成のテストシナリオ
+
+project_name: "scenario_test_platform"
+description: "2-agent scenario test system with MODERATOR and DEBATER_A"
+
+# 参加するエージェント (2体のみ)
+agents:
+  - id: "MODERATOR"
+    persona_file: "moderator.md"
+    description: "Fair and structured debate moderator"
+  
+  - id: "DEBATER_A"
+    persona_file: "debater_a.md"
+    description: "Analytical debater focused on logical arguments"
+
+# A2Aメッセージバス設定（シナリオテスト用）
+message_bus:
+  type: "sqlite"
+  db_path: "messages.db"
+  
+# スーパーバイザーがMODERATORに与える最初のタスク
+initial_task:
+  topic: "AIエージェントの自律的協調は、人間の創造性を拡張するか？"
+
+# シナリオ実行設定
+scenario_config:
+  # シナリオ実行時のベースディレクトリ
+  runs_base_dir: "debate_runs"
+
+# プラットフォーム設定詳細（シナリオテスト用）
+platform_config:
+  # データとログのベースとなるディレクトリ
+  data_storage_path: "${DEBATE_DIR:-./strage}"
+  
+  # メッセージ履歴を保存するデータベースのディレクトリ
+  message_db_path: "./message"
+
+  # このシナリオで使うエージェント設定ファイルの場所
+  agent_config_path: "./config/scenario_test"

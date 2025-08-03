@@ -37,7 +37,7 @@ class TestPlatformConfigTDD:
             ],
             'platform_config': {
                 'data_storage_path': './test_runs',
-                'message_db_path': 'test_messages.db',
+                'message_db_path': './',
                 'agent_config_path': './test_config'
             }
         }
@@ -90,7 +90,11 @@ class TestPlatformConfigTDD:
             assert os.path.isabs(config.data_storage_path)
             assert config.data_storage_path.endswith('test_runs')
             assert os.path.isabs(config.message_db_path)
-            assert config.message_db_path.endswith('test_messages.db')
+            assert os.path.isdir(config.message_db_path)  # ディレクトリであることを確認
+
+            # データベースファイルパスの取得テスト
+            db_file_path = config.get_message_db_file_path('test_messages.db')
+            assert db_file_path.endswith('test_messages.db')
         finally:
             os.unlink(config_path)
 
@@ -139,7 +143,9 @@ class TestPlatformConfigTDD:
 
             # Assert
             assert config.data_storage_path.endswith('runs')  # デフォルト値
-            assert config.message_db_path.endswith('messages.db')  # デフォルト値
+            assert os.path.isdir(config.message_db_path)  # ディレクトリであることを確認
+            db_file_path = config.get_message_db_file_path()
+            assert db_file_path.endswith('messages.db')  # デフォルトファイル名
             assert config.agent_config_path == './config'  # デフォルト値
         finally:
             os.unlink(config_path)
@@ -152,7 +158,7 @@ class TestPlatformConfigTDD:
             'agents': [],
             'platform_config': {
                 'data_storage_path': '${DATA_DIR:-./default_runs}',
-                'message_db_path': '${DB_NAME:-messages.db}'
+                'message_db_path': '${DB_DIR:-./}'
             }
         }
 
@@ -164,13 +170,15 @@ class TestPlatformConfigTDD:
 
         try:
             # Act
-            env_vars = {'DATA_DIR': '/custom/data', 'DB_NAME': 'custom.db'}
+            env_vars = {'DATA_DIR': '/custom/data', 'DB_DIR': '/custom/db/'}
             with patch.dict(os.environ, env_vars):
                 config = PlatformConfig(config_path)
 
             # Assert
             assert config.data_storage_path == '/custom/data'
-            assert config.message_db_path.endswith('custom.db')
+            assert config.message_db_path == '/custom/db/'
+            db_file_path = config.get_message_db_file_path('custom.db')
+            assert db_file_path.endswith('custom.db')
         finally:
             os.unlink(config_path)
 

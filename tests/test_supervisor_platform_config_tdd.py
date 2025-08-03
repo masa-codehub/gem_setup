@@ -42,7 +42,7 @@ class TestSupervisorPlatformConfigTDD:
             },
             'platform_config': {
                 'data_storage_path': './test_runs',
-                'message_db_path': 'test_messages.db',
+                'message_db_path': './',
                 'agent_config_path': './test_config'
             }
         }
@@ -84,9 +84,9 @@ class TestSupervisorPlatformConfigTDD:
             # Act
             supervisor = Supervisor(platform_config)
             supervisor.initialize_message_bus()
-            
+
             # Assert
-            expected_db_path = platform_config.message_db_path
+            expected_db_path = platform_config.get_message_db_file_path()
             assert supervisor.message_bus.db_path == expected_db_path
         finally:
             os.unlink(config_path)
@@ -108,7 +108,7 @@ class TestSupervisorPlatformConfigTDD:
             # supervisor = Supervisor(platform_config)
             # expected_config_path = platform_config.agent_config_path
             # assert supervisor.agent_config_path == expected_config_path
-            
+
             pytest.skip("Agent config path resolution not implemented yet")
         finally:
             os.unlink(config_path)
