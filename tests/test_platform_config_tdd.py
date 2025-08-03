@@ -211,9 +211,20 @@ class TestPlatformConfigTDD:
             os.unlink(config_path)
 
     def test_run_platform_script_reads_environment_config_variable(self):
-        """🔴 RED: run_platform.pyが環境変数から設定ファイルを読み取れる"""
-        # このテストは、run_platform.pyが実装された後に有効になる
-        pytest.skip("run_platform.py implementation pending")
+        """GREEN: run_platform.pyが環境変数から設定ファイルを読み取れる"""
+        # TDD Green Phase: 実装が存在することを確認
+        from pathlib import Path
+
+        script_path = Path("/app/run_platform.py")
+        content = script_path.read_text()
+
+        # 環境変数AGENT_PLATFORM_CONFIGを読み取っていることを確認
+        assert 'AGENT_PLATFORM_CONFIG' in content, \
+            "run_platform.py should read AGENT_PLATFORM_CONFIG"
+
+        # os.getenvを使用していることを確認
+        assert 'os.getenv(' in content, \
+            "run_platform.py should use os.getenv to read environment"
 
 
 if __name__ == "__main__":

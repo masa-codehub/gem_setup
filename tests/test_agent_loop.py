@@ -112,9 +112,11 @@ class TestAgentLoop(unittest.TestCase):
         agent_loop._process_message(test_message)
 
         # Assert
-        mock_injector_instance.build_prompt.assert_called_once()
+        # 新しい実装では、GeminiServiceがagent_idとcontextを受け取る
         mock_llm_instance.generate_response.assert_called_once_with(
-            "Test prompt")
+            agent_id="MODERATOR",
+            context=test_message
+        )
 
 
 if __name__ == '__main__':

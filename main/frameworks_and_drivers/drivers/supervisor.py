@@ -37,10 +37,14 @@ class Supervisor:
             # 後方互換性: ファイルパスを受け取る場合
             self._load_project_definition(config)
             self.platform_config = None
+            self.config = None  # TDD: テストが期待するプロパティを追加
         elif isinstance(config, PlatformConfig):
             # 新しい方式: PlatformConfigオブジェクトを受け取る場合
             self.project_def = config.project_definition
             self.platform_config = config
+            self.config = config  # TDD: テストが期待するプロパティを追加
+            # TDD Green Phase: エージェント設定パス解決機能を追加
+            self.agent_config_path = config.agent_config_path
         else:
             raise TypeError(
                 "config must be either a file path (str) or "
