@@ -67,14 +67,17 @@ class Supervisor:
         """A2Aメッセージバスを初期化する"""
         if self.platform_config:
             # PlatformConfigオブジェクトからパスを取得
-            db_path = self.platform_config.message_db_path
+            # message_db_pathがディレクトリなので、ファイルパスを構築
+            db_path = self.platform_config.get_message_db_file_path()
         else:
             # 従来の方式（後方互換性）
             message_bus_config = self.project_def.get('message_bus', {})
             db_path = message_bus_config.get('db_path', 'messages.db')
 
         self.message_bus = SqliteMessageBroker(db_path)
+        print(f"🔧 Database path: {db_path}")
         self.message_bus.initialize_db()
+        print("🔧 Database initialized successfully")
 
     def _create_message(
         self, recipient_id: str, message_type: str,
@@ -268,3 +271,104 @@ class Supervisor:
     def get_initialization_stats(self) -> Dict[str, Any]:
         """初期化統計情報を取得"""
         return self.session_stats
+
+    # ===== Scenario Management Methods (TDD Implementation) =====
+
+    def kickoff_scenario(self) -> None:
+        """
+        シナリオを開始するために、最初のメッセージを投函する
+
+        TDD Green Phase: テストを通す最小限の実装
+        """
+        if self.message_bus is None:
+            raise ConnectionError("Message bus is not initialized.")
+
+        # プロジェクト定義から初期タスクを取得
+        initial_task = self.project_def.get('initial_task', {})
+        topic = initial_task.get('topic', 'Default Topic')
+
+        # Moderatorにディベートの開始を指示するメッセージ
+        kickoff_message = Message(
+            recipient_id="MODERATOR",
+            sender_id="SYSTEM",
+            message_type="INITIATE_DEBATE",
+            payload={
+                "topic": topic,
+                "rules": "The debate will proceed according to the persona."
+            },
+            turn_id=1
+        )
+        self.message_bus.post_message(kickoff_message)
+        print(
+            f"🏁 Scenario kickoff message sent to MODERATOR with topic: '{topic}'")
+
+    def monitor_for_shutdown(self, timeout_sec: int = 180) -> bool:
+        """
+        エージェントからのシャットダウン要求を監視する
+
+        TDD Green Phase: テストを通す最小限の実装
+
+        Args:
+            timeout_sec: タイムアウト時間（秒）
+
+        Returns:
+            bool: シャットダウンメッセージを受信した場合True、タイムアウト時False
+        """
+        if self.message_bus is None:
+            raise ConnectionError("Message bus is not initialized.")
+
+        print("\n🗣️  Debate in progress. Monitoring for SHUTDOWN_SYSTEM message...")
+        start_time = time.time()
+
+        while time.time() - start_time < timeout_sec:
+            # SUPERVISOR宛のメッセージを確認
+            shutdown_msg = self.message_bus.get_message("SUPERVISOR")
+            if shutdown_msg and shutdown_msg.message_type == "SHUTDOWN_SYSTEM":
+                print(
+                    f"✅ Received SHUTDOWN_SYSTEM from {shutdown_msg.sender_id}. Mission accomplished.")
+                return True
+            time.sleep(5)
+
+        print("⏰ TIMEOUT: Shutdown message not received within the time limit.")
+        return False
+
+    def run_scenario(self, timeout_sec: int = 180) -> bool:
+        """
+        完全なシナリオを実行する
+
+        1. エージェントを開始
+        2. シナリオをキックオフ
+        3. シャットダウンメッセージを監視
+        4. エージェントを終了
+
+        Args:
+            timeout_sec: タイムアウト時間（秒）
+
+        Returns:
+            bool: シナリオが正常に完了した場合True
+        """
+        try:
+            # 1. エージェントを開始
+            print("🤖 Starting agent processes...")
+            self.start()
+            print("✅ All agents launched successfully")
+
+            # エージェントが起動するまで少し待つ
+            time.sleep(5)
+
+            # 2. シナリオをキックオフ
+            print("🏁 Starting scenario...")
+            self.kickoff_scenario()
+
+            # 3. シャットダウンメッセージを監視
+            success = self.monitor_for_shutdown(timeout_sec)
+
+            return success
+
+        except Exception as e:
+            print(f"❌ Error during scenario execution: {e}")
+            return False
+        finally:
+            # 4. エージェントを終了
+            print("🛑 Shutting down all agent processes.")
+            self.shutdown()

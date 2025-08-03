@@ -52,16 +52,19 @@ class PlatformConfig:
         os.makedirs(base_path, exist_ok=True)
         self.data_storage_path = base_path
 
-        # message_db_pathの解決
-        db_file = platform_config.get('message_db_path', 'messages.db')
-        db_file = self._expand_environment_variables(db_file)
+        # message_db_pathの解決（ディレクトリパス）
+        db_dir = platform_config.get('message_db_path', './')
+        db_dir = self._expand_environment_variables(db_dir)
 
-        if os.path.isabs(db_file):
-            self.message_db_path = db_file
+        if os.path.isabs(db_dir):
+            self.message_db_path = db_dir
         else:
             self.message_db_path = os.path.join(
-                self.data_storage_path, db_file
+                self.data_storage_path, db_dir
             )
+
+        # ディレクトリが存在しない場合は作成
+        os.makedirs(self.message_db_path, exist_ok=True)
 
         # agent_config_pathの解決
         self.agent_config_path = platform_config.get(
@@ -121,3 +124,15 @@ class PlatformConfig:
     def get_platform_config(self) -> Dict[str, Any]:
         """プラットフォーム設定を取得"""
         return self._config.get('platform', {})
+
+    def get_message_db_file_path(self, db_filename: str = "messages.db") -> str:
+        """
+        メッセージデータベースファイルの完全パスを取得
+
+        Args:
+            db_filename: データベースファイル名（デフォルト: messages.db）
+
+        Returns:
+            完全なデータベースファイルパス
+        """
+        return os.path.join(self.message_db_path, db_filename)
