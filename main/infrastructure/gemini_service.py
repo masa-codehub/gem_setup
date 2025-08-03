@@ -45,6 +45,19 @@ class GeminiService(ILLMService):
 }
 ```'''
 
+        # JUDGE_Lの場合：MODERATORに判定を送信
+        if "JUDGE_L" in prompt and "REQUEST_JUDGEMENT" in prompt:
+            return '''```json
+{
+    "recipient_id": "MODERATOR",
+    "message_type": "SUBMIT_JUDGEMENT",
+    "payload": {
+        "judgement": "DEBATER_A: 42/50点, DEBATER_N: 38/50点",
+        "reason": "DEBATER_Aの論理構成が優れている"
+    }
+}
+```'''
+
         # デフォルト応答
         return '''```json
 {

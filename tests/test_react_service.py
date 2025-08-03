@@ -32,12 +32,12 @@ class TestReActService(unittest.TestCase):
             )
         ]
 
-        # LLMの応答をモック
+        # LLMの応答をモック - 新しいフォーマットに対応
         self.mock_llm_service.generate_response.return_value = """
         私は司会者として、この議論を開始します。
         
         Action: post_message
-        Input: {"recipient_id": "DEBATER_A", "message_type": "REQUEST_STATEMENT", "body": {"topic": "AIの倫理について"}}
+        Input: {"recipient_id": "DEBATER_A", "message_type": "REQUEST_STATEMENT", "payload": {"topic": "AIの倫理について"}}
         """
 
         # Act
