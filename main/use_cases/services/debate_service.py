@@ -5,7 +5,7 @@ TDD Green段階：ディベートのビジネスロジックをアプリケー�
 ドメイン層の汎用モデルを使ってディベート機能を提供
 """
 
-from main.domain.models import Message
+from main.entities.models import Message
 
 
 class DebateService:

@@ -4,8 +4,8 @@ IPromptRepositoryインターフェースの具体的な実装
 """
 
 import os
-from main.application.interfaces import IPromptRepository
-from main.domain.models import AgentID
+from main.use_cases.interfaces import IPromptRepository
+from main.entities.models import AgentID
 
 
 class FileBasedPromptRepository(IPromptRepository):

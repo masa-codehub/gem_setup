@@ -5,16 +5,21 @@ Agent Loop のTDDテスト
 import unittest
 import time
 from unittest.mock import Mock, patch, MagicMock
-from main.interfaces.agent_loop import AgentLoop
-from main.domain.models import Message
+from main.interface_adapters.controllers.agent_controller import AgentLoop
+from main.entities.models import Message
+
+# Clean Architecture対応のパス定数
+MESSAGE_BROKER_PATH = 'main.frameworks_and_drivers.frameworks.message_broker.SqliteMessageBroker'
+PROMPT_INJECTOR_PATH = 'main.frameworks_and_drivers.frameworks.prompt_injector_service.PromptInjectorService'
+GEMINI_SERVICE_PATH = 'main.frameworks_and_drivers.frameworks.gemini_service.GeminiService'
 
 
 class TestAgentLoop(unittest.TestCase):
     """エージェントループのTDDテスト"""
 
-    @patch('main.interfaces.agent_loop.SqliteMessageBroker')
-    @patch('main.interfaces.agent_loop.PromptInjectorService')
-    @patch('main.interfaces.agent_loop.GeminiService')
+    @patch(MESSAGE_BROKER_PATH)
+    @patch(PROMPT_INJECTOR_PATH)
+    @patch(GEMINI_SERVICE_PATH)
     def test_agent_loop_should_initialize_with_dependencies(
         self, mock_gemini_service, mock_prompt_injector, mock_message_broker
     ):
@@ -28,9 +33,9 @@ class TestAgentLoop(unittest.TestCase):
         mock_prompt_injector.assert_called_once()
         mock_gemini_service.assert_called_once()
 
-    @patch('main.interfaces.agent_loop.SqliteMessageBroker')
-    @patch('main.interfaces.agent_loop.PromptInjectorService')
-    @patch('main.interfaces.agent_loop.GeminiService')
+    @patch(MESSAGE_BROKER_PATH)
+    @patch(PROMPT_INJECTOR_PATH)
+    @patch(GEMINI_SERVICE_PATH)
     @patch('time.sleep')
     def test_agent_loop_should_process_messages_in_loop(
         self, mock_sleep, mock_gemini_service, mock_prompt_injector,
@@ -74,9 +79,9 @@ class TestAgentLoop(unittest.TestCase):
             # Assert
             self.assertEqual(mock_broker_instance.get_message.call_count, 2)
 
-    @patch('main.interfaces.agent_loop.SqliteMessageBroker')
-    @patch('main.interfaces.agent_loop.PromptInjectorService')
-    @patch('main.interfaces.agent_loop.GeminiService')
+    @patch(MESSAGE_BROKER_PATH)
+    @patch(PROMPT_INJECTOR_PATH)
+    @patch(GEMINI_SERVICE_PATH)
     def test_agent_loop_should_process_message_with_llm(
         self, mock_gemini_service, mock_prompt_injector, mock_message_broker
     ):

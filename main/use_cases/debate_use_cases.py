@@ -4,11 +4,11 @@
 """
 
 import re
-from main.application.interfaces import (
+from main.use_cases.interfaces import (
     IMessageBroker, ILLMService, IPromptRepository,
     IDebateHistoryService
 )
-from main.domain.models import Message, AgentID
+from main.entities.models import Message, AgentID
 
 
 class SubmitStatementUseCase:

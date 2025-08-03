@@ -4,10 +4,10 @@ TDD Refactor Phase - Legacy Test Modernization
 """
 import unittest
 from unittest.mock import Mock, patch
-from main.infrastructure.gemini_service import GeminiService
-from main.infrastructure.prompt_injector_service import PromptInjectorService
-from main.infrastructure.file_repository import FileBasedPromptRepository
-from main.domain.models import Message
+from main.frameworks_and_drivers.frameworks.gemini_service import GeminiService
+from main.frameworks_and_drivers.frameworks.prompt_injector_service import PromptInjectorService
+from main.frameworks_and_drivers.frameworks.file_repository import FileBasedPromptRepository
+from main.entities.models import Message
 
 
 class TestGeminiServiceModernized(unittest.TestCase):

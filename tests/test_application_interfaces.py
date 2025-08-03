@@ -4,8 +4,8 @@
 TDD: インターフェースから始める
 """
 
-from main.domain.models import Message
-from main.application.interfaces import (
+from main.entities.models import Message
+from main.use_cases.interfaces import (
     IMessageBroker, ILLMService, IPromptRepository
 )
 from abc import ABC

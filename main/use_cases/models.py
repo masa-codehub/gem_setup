@@ -8,7 +8,7 @@ TDD Green段階：ディベートに特化したモデルをアプリケーシ�
 from dataclasses import dataclass, field
 from typing import List
 import time
-from main.domain.models import Session, AgentID
+from main.entities.models import Session, AgentID
 
 
 def _default_timestamp():

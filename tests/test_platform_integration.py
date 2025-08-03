@@ -7,7 +7,7 @@ import tempfile
 import os
 import yaml
 from unittest.mock import Mock, patch
-from main.platform.supervisor import Supervisor
+from main.frameworks_and_drivers.drivers.supervisor import Supervisor
 
 
 class TestPlatformIntegration(unittest.TestCase):

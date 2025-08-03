@@ -3,8 +3,8 @@ ReAct Service - より高度なロジック実装（Green phase）
 """
 import json
 from typing import Optional, Dict, Any
-from main.application.interfaces import ILLMService, IMessageBroker
-from main.domain.models import Message
+from main.use_cases.interfaces import ILLMService, IMessageBroker
+from main.entities.models import Message
 
 
 class ReActService:

@@ -6,7 +6,7 @@ import unittest
 import sys
 from unittest.mock import Mock, patch
 from main.agent_entrypoint import main as agent_main
-from main.interfaces.agent_loop import AgentLoop
+from main.interface_adapters.controllers.agent_controller import AgentLoop
 
 
 class TestAgentEntrypoint(unittest.TestCase):

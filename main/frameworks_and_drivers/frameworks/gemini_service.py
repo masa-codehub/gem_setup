@@ -5,15 +5,17 @@ ILLMServiceインターフェースの具体的な実装
 
 import subprocess
 import json
-from main.application.interfaces import ILLMService
-from main.infrastructure.prompt_injector_service import PromptInjectorService
-from main.domain.models import Message
+from main.use_cases.interfaces import ILLMService
+from main.frameworks_and_drivers.frameworks.prompt_injector_service import (
+    PromptInjectorService
+)
+from main.entities.models import Message
 
 
 class GeminiService(ILLMService):
     """Gemini APIを使ったLLMサービス（プロンプトインジェクター統合版）"""
 
-    def __init__(self, prompt_injector: PromptInjectorService,
+    def __init__(self, prompt_injector: PromptInjectorService = None,
                  timeout: int = 90):
         """
         Args:

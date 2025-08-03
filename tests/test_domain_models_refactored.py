@@ -14,7 +14,7 @@ class TestNewDomainModels:
 
     def test_agent_creation_with_generic_role(self):
         """エージェントを汎用的なロールで作成できる"""
-        from main.domain.models import Agent
+        from main.entities.models import Agent
 
         # ディベート固有でない汎用的なロール
         agent = Agent(agent_id="AI_ASSISTANT", role="assistant")
@@ -24,7 +24,7 @@ class TestNewDomainModels:
 
     def test_message_with_generic_type_and_payload(self):
         """汎用的なメッセージタイプとペイロードでメッセージを作成できる"""
-        from main.domain.models import Message
+        from main.entities.models import Message
 
         message = Message(
             recipient_id="AGENT_B",
@@ -43,7 +43,7 @@ class TestNewDomainModels:
 
     def test_task_creation_and_management(self):
         """タスクの作成と管理ができる"""
-        from main.domain.models import Task
+        from main.entities.models import Task
 
         task = Task(
             task_id="TASK_001",
@@ -62,7 +62,7 @@ class TestNewDomainModels:
 
     def test_session_with_generic_objective(self):
         """汎用的な目標を持つセッションを作成できる"""
-        from main.domain.models import Session
+        from main.entities.models import Session
 
         session = Session(
             session_id="SESSION_001",
@@ -79,7 +79,7 @@ class TestNewDomainModels:
 
     def test_message_timestamp_generation(self):
         """メッセージにデフォルトタイムスタンプが設定される"""
-        from main.domain.models import Message
+        from main.entities.models import Message
 
         with patch('time.strftime') as mock_strftime:
             mock_strftime.return_value = "2025-08-03T12:00:00Z"
@@ -114,7 +114,7 @@ class TestNewDomainModels:
 
     def test_task_without_dependencies(self):
         """依存関係なしでタスクを作成できる"""
-        from main.domain.models import Task
+        from main.entities.models import Task
 
         task = Task(
             task_id="SIMPLE_TASK",
@@ -128,7 +128,7 @@ class TestNewDomainModels:
 
     def test_session_status_transitions(self):
         """セッションのステータス遷移をテスト（ドメインロジックではなく単純な属性変更）"""
-        from main.domain.models import Session
+        from main.entities.models import Session
 
         session = Session(
             session_id="TEST_SESSION",
@@ -151,21 +151,21 @@ class TestOldDebateSpecificModelsRemoval:
     def test_debate_specific_models_are_removed(self):
         """ディベート固有のモデルが削除されている"""
         with pytest.raises(ImportError):
-            from main.domain.models import DebatePhase  # noqa: F401
+            from main.entities.models import DebatePhase  # noqa: F401
 
         with pytest.raises(ImportError):
-            from main.domain.models import JudgementScore  # noqa: F401
+            from main.entities.models import JudgementScore  # noqa: F401
 
         with pytest.raises(ImportError):
-            from main.domain.models import DebateSession  # noqa: F401
+            from main.entities.models import DebateSession  # noqa: F401
 
         with pytest.raises(ImportError):
-            from main.domain.models import Statement  # noqa: F401
+            from main.entities.models import Statement  # noqa: F401
 
     def test_debate_specific_literals_are_removed(self):
         """ディベート固有のLiteral型が削除されている"""
         # 新しいモデルでは、AgentIDとMessageTypeは汎用的なstrになっている
-        from main.domain.models import AgentID, MessageType
+        from main.entities.models import AgentID, MessageType
 
         # これらは型エイリアスなので、実際の型はstrのはず
         assert AgentID == str

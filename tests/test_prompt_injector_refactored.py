@@ -14,9 +14,9 @@ class TestPromptInjectorService:
 
     def test_prompt_injector_builds_generic_prompt(self):
         """プロンプトインジェクターが汎用的なメッセージからプロンプトを構築する"""
-        from main.infrastructure.prompt_injector_service import PromptInjectorService
-        from main.domain.models import Message
-        from main.application.interfaces import IPromptRepository
+        from main.frameworks_and_drivers.frameworks.prompt_injector_service import PromptInjectorService
+        from main.entities.models import Message
+        from main.use_cases.interfaces import IPromptRepository
 
         # モックリポジトリを作成
         mock_repo = Mock(spec=IPromptRepository)
@@ -40,9 +40,9 @@ class TestPromptInjectorService:
 
     def test_prompt_injector_handles_debate_specific_context(self):
         """プロンプトインジェクターがディベート固有のコンテキストを処理できる"""
-        from main.infrastructure.prompt_injector_service import PromptInjectorService
-        from main.domain.models import Message
-        from main.application.interfaces import IPromptRepository
+        from main.frameworks_and_drivers.frameworks.prompt_injector_service import PromptInjectorService
+        from main.entities.models import Message
+        from main.use_cases.interfaces import IPromptRepository
 
         mock_repo = Mock(spec=IPromptRepository)
         mock_repo.get_persona.return_value = "You are DEBATER_A in a formal debate."
@@ -70,9 +70,9 @@ class TestPromptInjectorService:
 
     def test_prompt_injector_formats_message_history(self):
         """プロンプトインジェクターがメッセージ履歴を適切にフォーマットする"""
-        from main.infrastructure.prompt_injector_service import PromptInjectorService
-        from main.domain.models import Message
-        from main.application.interfaces import IPromptRepository
+        from main.frameworks_and_drivers.frameworks.prompt_injector_service import PromptInjectorService
+        from main.entities.models import Message
+        from main.use_cases.interfaces import IPromptRepository
 
         mock_repo = Mock(spec=IPromptRepository)
         mock_repo.get_persona.return_value = "You are an analyst."
@@ -105,9 +105,9 @@ class TestGeminiServiceIntegration:
 
     def test_gemini_service_uses_prompt_injector(self):
         """GeminiServiceがPromptInjectorServiceを使用している"""
-        from main.infrastructure.gemini_service import GeminiService
-        from main.infrastructure.prompt_injector_service import PromptInjectorService
-        from main.domain.models import Message
+        from main.frameworks_and_drivers.frameworks.gemini_service import GeminiService
+        from main.frameworks_and_drivers.frameworks.prompt_injector_service import PromptInjectorService
+        from main.entities.models import Message
         from unittest.mock import Mock, patch
 
         # モックプロンプトインジェクター

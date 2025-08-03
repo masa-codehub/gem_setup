@@ -9,8 +9,10 @@ import os
 import time
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-from main.infrastructure.message_broker import SqliteMessageBroker
-from main.domain.models import Message
+from main.frameworks_and_drivers.frameworks.message_broker import (
+    SqliteMessageBroker
+)
+from main.entities.models import Message
 
 
 class Supervisor:

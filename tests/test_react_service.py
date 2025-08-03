@@ -4,8 +4,8 @@ TDD: まず失敗するテストを書く（Red phase）
 """
 import unittest
 from unittest.mock import Mock
-from main.application.services.react_service import ReActService
-from main.domain.models import Message
+from main.use_cases.services.react_service import ReActService
+from main.entities.models import Message
 
 
 class TestReActService(unittest.TestCase):

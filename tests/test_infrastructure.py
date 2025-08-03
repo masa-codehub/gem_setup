@@ -4,10 +4,10 @@
 外部サービスとの具体的な実装をテスト
 """
 
-from main.domain.models import Message
-from main.infrastructure.file_repository import FileBasedPromptRepository
-from main.infrastructure.gemini_service import GeminiService
-from main.infrastructure.message_broker import SqliteMessageBroker
+from main.entities.models import Message
+from main.frameworks_and_drivers.frameworks.file_repository import FileBasedPromptRepository
+from main.frameworks_and_drivers.frameworks.gemini_service import GeminiService
+from main.frameworks_and_drivers.frameworks.message_broker import SqliteMessageBroker
 import sys
 import os
 import tempfile
@@ -74,13 +74,13 @@ class TestGeminiService:
 
     def test_generate_response_success(self):
         """正常なレスポンス生成のテスト - 新アーキテクチャ対応"""
-        from main.infrastructure.file_repository import (
+        from main.frameworks_and_drivers.frameworks.file_repository import (
             FileBasedPromptRepository
         )
-        from main.infrastructure.prompt_injector_service import (
+        from main.frameworks_and_drivers.frameworks.prompt_injector_service import (
             PromptInjectorService
         )
-        from main.domain.models import Message
+        from main.entities.models import Message
         from unittest.mock import Mock, patch
 
         # モックプロンプトリポジトリを作成
@@ -112,13 +112,13 @@ class TestGeminiService:
 
     def test_generate_response_with_system_prompt(self):
         """システムプロンプト付きレスポンス生成のテスト - 新アーキテクチャ対応"""
-        from main.infrastructure.file_repository import (
+        from main.frameworks_and_drivers.frameworks.file_repository import (
             FileBasedPromptRepository
         )
-        from main.infrastructure.prompt_injector_service import (
+        from main.frameworks_and_drivers.frameworks.prompt_injector_service import (
             PromptInjectorService
         )
-        from main.domain.models import Message
+        from main.entities.models import Message
         from unittest.mock import Mock, patch
 
         # モックプロンプトリポジトリを作成
@@ -153,13 +153,13 @@ class TestGeminiService:
 
     def test_generate_response_error(self):
         """エラー時のテスト - 新アーキテクチャ対応"""
-        from main.infrastructure.file_repository import (
+        from main.frameworks_and_drivers.frameworks.file_repository import (
             FileBasedPromptRepository
         )
-        from main.infrastructure.prompt_injector_service import (
+        from main.frameworks_and_drivers.frameworks.prompt_injector_service import (
             PromptInjectorService
         )
-        from main.domain.models import Message
+        from main.entities.models import Message
         from unittest.mock import Mock, patch
 
         # モックプロンプトリポジトリを作成

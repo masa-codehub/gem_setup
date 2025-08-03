@@ -4,8 +4,8 @@
 クリーンアーキテクチャ全体の動作をテスト
 """
 
-from main.domain.models import Message
-from main.interfaces.agent_orchestrator import AgentOrchestrator
+from main.entities.models import Message
+from main.interface_adapters.controllers.agent_orchestrator import AgentOrchestrator
 import sys
 import os
 import tempfile

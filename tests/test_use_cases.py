@@ -5,8 +5,8 @@ TDD: ビジネスロジックをテストファーストで作成
 """
 
 from tests.test_application_interfaces import MockMessageBroker, MockLLMService
-from main.domain.models import Message
-from main.application.use_cases import (
+from main.entities.models import Message
+from main.use_cases.debate_use_cases import (
     SubmitStatementUseCase,
     SubmitRebuttalUseCase,
     SubmitJudgementUseCase
