@@ -1,10 +1,12 @@
 """
-Agent Orchestrator - 本格的な実装（Green phase）
+Agent Orchestrator - 本格的な実装（リファクタリング版）
 """
 import time
 from typing import Optional
 from main.infrastructure.message_broker import SqliteMessageBroker
 from main.infrastructure.gemini_service import GeminiService
+from main.infrastructure.prompt_injector_service import PromptInjectorService
+from main.infrastructure.file_repository import FileBasedPromptRepository
 from main.application.services.react_service import ReActService
 from main.domain.models import Message
 
@@ -14,11 +16,16 @@ class AgentOrchestrator:
         self.agent_id = agent_id
         self.mode = mode
 
-        # 依存性の注入
+        # 依存性の注入（新アーキテクチャ対応）
         self.message_broker = SqliteMessageBroker()
         self.message_broker.initialize_db()
 
-        self.llm_service = GeminiService()
+        # プロンプトリポジトリとインジェクターの初期化
+        self.prompt_repository = FileBasedPromptRepository()
+        self.prompt_injector = PromptInjectorService(self.prompt_repository)
+
+        # LLMサービスの初期化（新しいインターフェース）
+        self.llm_service = GeminiService(self.prompt_injector)
 
         self.react_service = ReActService(
             self.llm_service,

@@ -17,14 +17,17 @@ class ReActService:
         """
         現在の文脈から次の行動を思考し、結果のメッセージを生成する
         """
-        # 1. プロンプトを構築
-        prompt = self._build_react_prompt(agent_id, persona, history)
+        # 1. 履歴から最新のメッセージを取得
+        context_message = history[-1] if history else None
+        if not context_message:
+            return None
 
-        # 2. LLMに応答を生成させる
-        response_text = self.llm_service.generate_response(prompt)
+        # 2. LLMに応答を生成させる（新しいインターフェース）
+        response = self.llm_service.generate_response(
+            agent_id, context_message)
 
-        # 3. テキストからメッセージを生成して返す
-        return self._parse_response_to_message(agent_id, response_text)
+        # 3. 既にMessageオブジェクトとして返されるので、そのまま返す
+        return response
 
     def observe_think_act(self, agent_id: str) -> Optional[Message]:
         """
@@ -38,23 +41,12 @@ class ReActService:
         if not incoming_message:
             return None
 
-        # 思考: LLMに状況を分析させる
-        prompt = self._build_react_observation_prompt(
+        # 思考: LLMに状況を分析させる（新しいインターフェース）
+        response = self.llm_service.generate_response(
             agent_id, incoming_message)
-        response_text = self.llm_service.generate_response(prompt)
 
-        # 行動: 応答からアクションを抽出してメッセージを生成
-        action_data = self._parse_action_from_response(response_text)
-        if not action_data:
-            return None
-
-        return Message(
-            sender_id=agent_id,
-            recipient_id=action_data["recipient_id"],
-            message_type=action_data["message_type"],
-            payload=action_data["payload"],
-            turn_id=incoming_message.turn_id + 1
-        )
+        # 行動: 既にMessageオブジェクトとして返されるのでそのまま返す
+        return response
 
     def _build_react_prompt(
         self, agent_id: str, persona: str, history: list[Message]
